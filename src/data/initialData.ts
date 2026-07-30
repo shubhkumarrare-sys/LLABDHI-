@@ -1,0 +1,382 @@
+import {
+  DebtorItem,
+  CreditorItem,
+  EmiItem,
+  ComplianceItem,
+  CalendarLogItem,
+  EmailLogItem,
+  AppSettings,
+} from '../types';
+
+// Baseline date reference: Current local date in context is 2026-07-30
+export const INITIAL_SETTINGS: AppSettings = {
+  companyName: 'Llabdhi Manufacturing LLP',
+  currencySymbol: '₹',
+  creditTermsDays: 30,
+  reminderIntervals: [-7, -5, -3, -2, -1, 0, 1, 2, 3, 7],
+  notificationEmail: 'shubhkumarrare@gmail.com',
+  autoSyncCalendar: true,
+  autoEmailReminders: true,
+};
+
+export const INITIAL_DEBTORS: DebtorItem[] = [
+  {
+    id: 'DEB-101',
+    clientEntity: 'IFB Industries Ltd',
+    invoiceRef: 'LL/2026-27/0412',
+    invoiceDate: '2026-06-15',
+    dueDate: '2026-07-15', // Overdue by 15 days
+    amount: 1485000,
+    status: 'Overdue',
+    contactEmail: 'ap@ifbindustries.com',
+    contactPerson: 'Sandeep Varma (Purchasing Head)',
+    notes: 'Precision stamped steel enclosures for washing machines.',
+  },
+  {
+    id: 'DEB-102',
+    clientEntity: 'IFB Industries Ltd',
+    invoiceRef: 'LL/2026-27/0445',
+    invoiceDate: '2026-06-28',
+    dueDate: '2026-07-28', // Overdue by 2 days
+    amount: 920000,
+    status: 'Overdue',
+    contactEmail: 'ap@ifbindustries.com',
+    contactPerson: 'Sandeep Varma',
+    notes: 'Motor mounting brackets batch #2.',
+  },
+  {
+    id: 'DEB-103',
+    clientEntity: 'Johnson Lifts Pvt Ltd',
+    invoiceRef: 'LL/2026-27/0488',
+    invoiceDate: '2026-07-02',
+    dueDate: '2026-08-01', // Due in 2 days (within 5 days window)
+    amount: 2150000,
+    status: 'Pending',
+    contactEmail: 'accounts@johnsonlifts.com',
+    contactPerson: 'K. Ramanathan',
+    notes: 'Elevator door header fabrication assemblies.',
+  },
+  {
+    id: 'DEB-104',
+    clientEntity: 'Western Refrigeration Ltd',
+    invoiceRef: 'LL/2026-27/0419',
+    invoiceDate: '2026-05-20',
+    dueDate: '2026-06-20', // Overdue by 40 days - High Risk
+    amount: 1840000,
+    status: 'Overdue',
+    contactEmail: 'vendorpay@westernref.com',
+    contactPerson: 'Anil Mehta (Finance Manager)',
+    notes: 'Commercial condenser coil mounting frames. High risk overdue.',
+  },
+  {
+    id: 'DEB-105',
+    clientEntity: 'Tata Motors Limited',
+    invoiceRef: 'LL/2026-27/0501',
+    invoiceDate: '2026-07-05',
+    dueDate: '2026-08-04', // Due in 5 days
+    amount: 3200000,
+    status: 'Pending',
+    contactEmail: 'vendor.finance@tatamotors.com',
+    contactPerson: 'Pravin Joshi (Commercial AP)',
+    notes: 'CV chassis gusset plates and cross-members.',
+  },
+  {
+    id: 'DEB-106',
+    clientEntity: 'Siemens India Ltd',
+    invoiceRef: 'LL/2026-27/0512',
+    invoiceDate: '2026-07-10',
+    dueDate: '2026-08-09', // Due in 10 days
+    amount: 1750000,
+    status: 'Pending',
+    contactEmail: 'invoicing.india@siemens.com',
+    contactPerson: 'Neha Sharma',
+    notes: 'Switchgear sheet metal cabinets.',
+  },
+  {
+    id: 'DEB-109',
+    clientEntity: 'Godrej & Boyce Mfg Co Ltd',
+    invoiceRef: 'LL/2026-27/0528',
+    invoiceDate: '2026-07-14',
+    dueDate: '2026-08-13', // Due in 14 days (within 15 days window)
+    amount: 2400000,
+    status: 'Pending',
+    contactEmail: 'purchase@godrej.com',
+    contactPerson: 'Vikas Kulkarni',
+    notes: 'Security locker heavy gauge pressings.',
+  },
+  {
+    id: 'DEB-110',
+    clientEntity: 'Thermax Limited',
+    invoiceRef: 'LL/2026-27/0540',
+    invoiceDate: '2026-07-22',
+    dueDate: '2026-08-21', // Due in 22 days (within 30 days monthly window)
+    amount: 3100000,
+    status: 'Pending',
+    contactEmail: 'ap.boilers@thermaxglobal.com',
+    contactPerson: 'Rajesh Nair',
+    notes: 'Boiler shell jacket fabrications & ducting.',
+  },
+  {
+    id: 'DEB-107',
+    clientEntity: 'Johnson Lifts Pvt Ltd',
+    invoiceRef: 'LL/2026-27/0398',
+    invoiceDate: '2026-05-30',
+    dueDate: '2026-06-30', // Overdue by 30 days
+    amount: 1280000,
+    status: 'Overdue',
+    contactEmail: 'accounts@johnsonlifts.com',
+    contactPerson: 'K. Ramanathan',
+    notes: 'Guide rail bracket assemblies.',
+  },
+  {
+    id: 'DEB-108',
+    clientEntity: 'Blue Star Limited',
+    invoiceRef: 'LL/2026-27/0460',
+    invoiceDate: '2026-06-25',
+    dueDate: '2026-07-25', // Paid yesterday
+    amount: 890000,
+    status: 'Paid',
+    paymentDate: '2026-07-29',
+    arnChallanRef: 'NEFT/CITIN2607298812',
+    contactEmail: 'finance@bluestarindia.com',
+    notes: 'Chiller casing panels.',
+  },
+];
+
+export const INITIAL_CREDITORS: CreditorItem[] = [
+  {
+    id: 'CRE-201',
+    vendorEntity: 'Tata Steel Processing & Distribution',
+    invoiceRef: 'TSPDL/IN/88341',
+    dueDate: '2026-08-02', // Due in 3 days
+    amount: 1850000,
+    category: 'Raw Material',
+    status: 'Pending',
+    notes: 'HR & CR Steel Coil supplies (120 MT).',
+  },
+  {
+    id: 'CRE-202',
+    vendorEntity: 'Trumpf India Laser Solutions',
+    invoiceRef: 'TR/AMC/2026-09',
+    dueDate: '2026-08-03', // Due in 4 days
+    amount: 320000,
+    category: 'Machinery & Spares',
+    status: 'Pending',
+    notes: 'Fiber Laser Cutting Machine AMC & replacement lens kit.',
+  },
+  {
+    id: 'CRE-203',
+    vendorEntity: 'VRL Logistics Ltd',
+    invoiceRef: 'VRL/FRT/9021',
+    dueDate: '2026-07-31', // Due tomorrow (1 day)
+    amount: 145000,
+    category: 'Logistics',
+    status: 'Pending',
+    notes: 'Interstate heavy freight transport Pune-Chennai.',
+  },
+  {
+    id: 'CRE-204',
+    vendorEntity: 'Maharastra State Electricity Distribution (MSEDCL)',
+    invoiceRef: 'MSEDCL/IND/0726',
+    dueDate: '2026-08-04', // Due in 5 days
+    amount: 460000,
+    category: 'Utilities',
+    status: 'Pending',
+    notes: 'Factory HT Industrial Power Bill July 2026.',
+  },
+  {
+    id: 'CRE-207',
+    vendorEntity: 'Essar Steel India (Processing Division)',
+    invoiceRef: 'ESSAR/PNE/8812',
+    dueDate: '2026-08-12', // Due in 13 days
+    amount: 1250000,
+    category: 'Raw Material',
+    status: 'Pending',
+    notes: 'Galvanized iron coils for chassis sub-assemblies.',
+  },
+  {
+    id: 'CRE-208',
+    vendorEntity: 'Linde India Industrial Gases',
+    invoiceRef: 'LINDE/GAS/7721',
+    dueDate: '2026-08-24', // Due in 25 days (Monthly window)
+    amount: 210000,
+    category: 'Utilities',
+    status: 'Pending',
+    notes: 'Liquid Argon & CO2 shielding gas for robotic welding cell.',
+  },
+  {
+    id: 'CRE-205',
+    vendorEntity: 'Jindal Aluminium Ltd',
+    invoiceRef: 'JAL/AL/4412',
+    dueDate: '2026-07-22', // Overdue
+    amount: 780000,
+    category: 'Raw Material',
+    status: 'Overdue',
+    notes: 'Extruded aluminium heat sink profiles.',
+  },
+  {
+    id: 'CRE-206',
+    vendorEntity: 'AkzoNobel India (Powder Coatings)',
+    invoiceRef: 'AKZ/PC/3310',
+    dueDate: '2026-07-28',
+    amount: 290000,
+    category: 'Raw Material',
+    status: 'Paid',
+    paymentDate: '2026-07-28',
+    arnChallanRef: 'RTGS/HDFCR5202607280012',
+    notes: 'RAL 7035 Industrial Texture Powder.',
+  },
+];
+
+export const INITIAL_EMIS: EmiItem[] = [
+  {
+    id: 'EMI-301',
+    loanName: 'MG Cyberster EV Car Loan',
+    vehicleModel: 'MG Cyberster EV Convertible (MH 12 LL 7007)',
+    lenderBank: 'ICICI Bank Auto Loan Div',
+    accountNo: 'ICICI-AUTO-EV-99412',
+    totalLoanValue: 7200000,
+    remainingBalance: 5120000,
+    monthlyEmi: 145000,
+    dueDayOfMonth: 1,
+    nextDueDate: '2026-08-01', // Due in 2 days
+    status: 'Upcoming',
+    lastPaymentDate: '2026-07-01',
+    lastPaymentRef: 'ACH/ICICI/JUL01/9921',
+  },
+  {
+    id: 'EMI-302',
+    loanName: 'Saraswat Bank Mercedes-Benz Car Loan',
+    vehicleModel: 'Mercedes-Benz GLE 450 d 4MATIC (MH 12 LL 1001)',
+    lenderBank: 'Saraswat Co-operative Bank Ltd',
+    accountNo: 'SARASWAT-AL-882041',
+    totalLoanValue: 12500000,
+    remainingBalance: 8750000,
+    monthlyEmi: 225000,
+    dueDayOfMonth: 5,
+    nextDueDate: '2026-08-05', // Due in 6 days
+    status: 'Upcoming',
+    lastPaymentDate: '2026-07-05',
+    lastPaymentRef: 'RTGS/SARASWAT/JUL05/3301',
+  },
+];
+
+export const INITIAL_COMPLIANCE: ComplianceItem[] = [
+  {
+    id: 'CMP-401',
+    title: 'TDS Deposit',
+    period: 'July 2026',
+    dueDate: '2026-08-07', // Due in 8 days
+    governingAuthority: 'Income Tax Dept',
+    status: 'Pending',
+    estimatedAmount: 185000,
+    responsibility: 'CA Mehta & Associates',
+  },
+  {
+    id: 'CMP-402',
+    title: 'GST GSTR-1',
+    period: 'July 2026',
+    dueDate: '2026-08-11',
+    governingAuthority: 'GSTN Portal',
+    status: 'Pending',
+    responsibility: 'In-house Finance Team',
+  },
+  {
+    id: 'CMP-403',
+    title: 'GST GSTR-3B',
+    period: 'July 2026',
+    dueDate: '2026-08-20',
+    governingAuthority: 'GSTN Portal',
+    status: 'Pending',
+    estimatedAmount: 840000,
+    responsibility: 'In-house Finance Team',
+  },
+  {
+    id: 'CMP-404',
+    title: 'DIR-3 KYC',
+    period: 'FY 2025-26',
+    dueDate: '2026-08-02', // Due in 3 days - Urgent!
+    governingAuthority: 'MCA V3 Portal',
+    status: 'Pending',
+    estimatedAmount: 5000,
+    responsibility: 'Company Secretary Apex',
+  },
+  {
+    id: 'CMP-405',
+    title: 'LLP Form 11',
+    period: 'FY 2025-26 Annual Return',
+    dueDate: '2026-05-30',
+    governingAuthority: 'MCA V3 Portal',
+    status: 'Filed',
+    filingDate: '2026-05-28',
+    arnChallanRef: 'MCA/AA8832101/2026',
+    responsibility: 'CS Apex',
+  },
+  {
+    id: 'CMP-406',
+    title: 'LLP Form 8',
+    period: 'FY 2025-26 Statement of Account',
+    dueDate: '2026-10-30',
+    governingAuthority: 'MCA V3 Portal',
+    status: 'Pending',
+    responsibility: 'CA Mehta & Associates',
+  },
+  {
+    id: 'CMP-407',
+    title: 'Advance Tax',
+    period: 'Q2 FY 2026-27 (2nd Instalment)',
+    dueDate: '2026-09-15',
+    governingAuthority: 'Income Tax Dept',
+    status: 'Pending',
+    estimatedAmount: 1200000,
+    responsibility: 'CA Mehta & Associates',
+  },
+];
+
+export const INITIAL_CALENDAR_LOGS: CalendarLogItem[] = [
+  {
+    id: 'CAL-001',
+    timestamp: '2026-07-29 09:30:12',
+    eventTitle: 'MG Cyberster EV Car Loan EMI Due (₹1,45,000)',
+    eventDate: '2026-08-01',
+    targetTab: 'EMIs',
+    itemRefId: 'EMI-301',
+    googleEventId: 'evt_gcal_emi_301_99201',
+    syncStatus: 'Synced',
+    syncId: 'SYNC-20260729-01',
+  },
+  {
+    id: 'CAL-002',
+    timestamp: '2026-07-29 09:30:14',
+    eventTitle: 'MCA DIR-3 KYC Deadline - Partners Filing',
+    eventDate: '2026-08-02',
+    targetTab: 'LLP_Compliance',
+    itemRefId: 'CMP-404',
+    googleEventId: 'evt_gcal_cmp_404_88102',
+    syncStatus: 'Synced',
+    syncId: 'SYNC-20260729-01',
+  },
+];
+
+export const INITIAL_EMAIL_LOGS: EmailLogItem[] = [
+  {
+    id: 'EML-001',
+    timestamp: '2026-07-29 08:00:00',
+    recipient: 'shubhkumarrare@gmail.com',
+    subject: '[LLABDHI OPS NODE Alert] 5-Day Cash Flow & Upcoming Liabilities',
+    itemRef: 'Daily Summary (-1d relative to due date)',
+    triggerType: 'Upcoming (-3d)',
+    syncId: 'SYNC-EML-20260729',
+    status: 'Sent',
+  },
+  {
+    id: 'EML-002',
+    timestamp: '2026-07-28 08:00:00',
+    recipient: 'shubhkumarrare@gmail.com',
+    subject: '[LLABDHI OPS NODE Alert] High-Risk Overdue Receivable: Western Refrigeration',
+    itemRef: 'DEB-104 (₹18,40,000 Overdue)',
+    triggerType: 'Overdue',
+    syncId: 'SYNC-EML-20260728',
+    status: 'Sent',
+  },
+];

@@ -1,0 +1,6 @@
+{
+  "name": "Llabdhi Manufacturing AI CFO & Ops Manager",
+  "description": "5-Day Cash Flow Command Center, Debtors, Creditors, EMIs, LLP Compliance & Google Apps Script Automations for Llabdhi Manufacturing LLP",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
