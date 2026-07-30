@@ -8,7 +8,7 @@ import {
   Code2,
   Settings,
   Bot,
-  RefreshCw,
+  LogOut,
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -16,6 +16,7 @@ interface NavbarProps {
   setActiveTab: (tab: string) => void;
   openAiChat: () => void;
   overdueCount: number;
+  onLogout?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -23,6 +24,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   setActiveTab,
   openAiChat,
   overdueCount,
+  onLogout,
 }) => {
   const navItems = [
     { id: 'dashboard', label: '5-Day Command Center', icon: LayoutDashboard },
@@ -60,15 +62,26 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* AI Manager Trigger Button */}
-          <div className="flex items-center space-x-3">
+          {/* AI Manager & Logout Action Buttons */}
+          <div className="flex items-center space-x-2.5">
             <button
               onClick={openAiChat}
-              className="inline-flex items-center space-x-2 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm transition-all shadow-sm hover:shadow group cursor-pointer"
+              className="inline-flex items-center space-x-2 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs sm:text-sm transition-all shadow-sm hover:shadow group cursor-pointer"
             >
               <Bot className="w-4 h-4 text-indigo-200 group-hover:scale-110 transition-transform" />
-              <span>Ask AI CFO Manager</span>
+              <span>Ask AI CFO</span>
             </button>
+
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                title="Log Out"
+                className="inline-flex items-center space-x-1 px-3 py-2 rounded-lg bg-slate-800 hover:bg-rose-900/40 text-slate-300 hover:text-rose-300 border border-slate-700 hover:border-rose-500/30 text-xs font-semibold transition cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
+            )}
           </div>
         </div>
 

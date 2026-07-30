@@ -8,6 +8,7 @@ import { ComplianceManager } from './components/ComplianceManager';
 import { AppsScriptAutomation } from './components/AppsScriptAutomation';
 import { SettingsManager } from './components/SettingsManager';
 import { AiCfoDrawer } from './components/AiCfoDrawer';
+import { LoginPage } from './components/LoginPage';
 
 import {
   DebtorItem,
@@ -33,6 +34,10 @@ import {
 import { Sparkles, X, Copy, Check, Send, Mail } from 'lucide-react';
 
 export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return sessionStorage.getItem('llabdhi_ops_auth') === 'true';
+  });
+
   const [activeTab, setActiveTab] = useState('dashboard');
 
   // Master Operational State (LLABDHI OPS NODE)
@@ -208,7 +213,16 @@ export default function App() {
     }
   };
 
+  const handleLogout = () => {
+    sessionStorage.removeItem('llabdhi_ops_auth');
+    setIsAuthenticated(false);
+  };
+
   const overdueCount = debtors.filter((d) => d.status === 'Overdue').length;
+
+  if (!isAuthenticated) {
+    return <LoginPage onLoginSuccess={() => setIsAuthenticated(true)} />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 font-sans text-slate-900 flex flex-col">
@@ -221,6 +235,7 @@ export default function App() {
           setIsAiDrawerOpen(true);
         }}
         overdueCount={overdueCount}
+        onLogout={handleLogout}
       />
 
       {/* Main Content Area */}
