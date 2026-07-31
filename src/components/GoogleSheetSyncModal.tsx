@@ -62,6 +62,64 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
     return match ? match[1] : null;
   };
 
+  // Helper to extract values for dynamic key variations
+  const getFieldVal = (r: any, keys: string[]): string => {
+    if (!r) return '';
+    for (const key of Object.keys(r)) {
+      const normalizedKey = key.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      for (const k of keys) {
+        if (normalizedKey === k.toLowerCase().replace(/[^a-z0-9]/g, '')) {
+          if (r[key] !== undefined && r[key] !== null && String(r[key]).trim() !== '') {
+            return String(r[key]).trim();
+          }
+        }
+      }
+    }
+    return '';
+  };
+
+  const extractDebtorName = (r: any): string => {
+    const val = getFieldVal(r, [
+      'clientEntity',
+      'client entity',
+      'client_entity',
+      'client',
+      'client name',
+      'debtor',
+      'debtors',
+      'debtor name',
+      'customer',
+      'customer name',
+      'party',
+      'party name',
+      'particulars',
+      'company',
+      'name',
+    ]);
+    return val || 'Client';
+  };
+
+  const extractCreditorName = (r: any): string => {
+    const val = getFieldVal(r, [
+      'vendorEntity',
+      'vendor entity',
+      'vendor_entity',
+      'vendor',
+      'vendor name',
+      'creditor',
+      'creditors',
+      'creditor name',
+      'supplier',
+      'supplier name',
+      'party',
+      'party name',
+      'particulars',
+      'company',
+      'name',
+    ]);
+    return val || 'Vendor';
+  };
+
   // Helper to parse CSV rows
   const parseCsvText = (csvText: string) => {
     const lines = csvText.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
@@ -138,27 +196,27 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
 
           // Transform fetched CSV rows to typed objects
           const newDebtors: DebtorItem[] = (fetchedResults['Debtors'] || []).map((r: any, idx: number) => ({
-            id: r.id || `DEB-${200 + idx}`,
-            clientEntity: r['client entity'] || r.client || r.name || 'Client',
-            invoiceRef: r['invoice ref'] || r.invoice || `INV-${100 + idx}`,
-            invoiceDate: r['invoice date'] || '2026-07-01',
-            dueDate: r['due date'] || '2026-08-01',
-            amount: parseFloat(r.amount?.replace(/[^0-9.]/g, '')) || 100000,
-            status: (r.status as any) || 'Pending',
-            contactEmail: r['contact email'] || r.email || '',
-            contactPerson: r['contact person'] || r.contact || '',
-            notes: r.notes || '',
+            id: getFieldVal(r, ['id', 'deb_id', 'debtor_id', 'invoice_id']) || `DEB-${200 + idx}`,
+            clientEntity: extractDebtorName(r),
+            invoiceRef: getFieldVal(r, ['invoiceRef', 'invoice ref', 'invoice_ref', 'invoice', 'inv no', 'bill ref']) || `INV-${100 + idx}`,
+            invoiceDate: getFieldVal(r, ['invoiceDate', 'invoice date', 'invoice_date', 'date', 'inv date']) || '2026-07-01',
+            dueDate: getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']) || '2026-08-01',
+            amount: parseFloat(getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount']).replace(/[^0-9.]/g, '')) || 100000,
+            status: (getFieldVal(r, ['status', 'payment status', 'state']) as any) || 'Pending',
+            contactEmail: getFieldVal(r, ['contactEmail', 'contact email', 'email', 'mail']),
+            contactPerson: getFieldVal(r, ['contactPerson', 'contact person', 'contact', 'person']),
+            notes: getFieldVal(r, ['notes', 'remarks', 'description', 'details']),
           }));
 
           const newCreditors: CreditorItem[] = (fetchedResults['Creditors'] || []).map((r: any, idx: number) => ({
-            id: r.id || `CRE-${300 + idx}`,
-            vendorEntity: r['vendor entity'] || r.vendor || 'Vendor',
-            invoiceRef: r['invoice ref'] || r.invoice || `BILL-${100 + idx}`,
-            dueDate: r['due date'] || '2026-08-05',
-            amount: parseFloat(r.amount?.replace(/[^0-9.]/g, '')) || 50000,
-            category: (r.category as any) || 'Raw Material',
-            status: (r.status as any) || 'Pending',
-            notes: r.notes || '',
+            id: getFieldVal(r, ['id', 'cre_id', 'creditor_id', 'bill_id']) || `CRE-${300 + idx}`,
+            vendorEntity: extractCreditorName(r),
+            invoiceRef: getFieldVal(r, ['invoiceRef', 'invoice ref', 'invoice_ref', 'invoice', 'inv no', 'bill ref']) || `BILL-${100 + idx}`,
+            dueDate: getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']) || '2026-08-05',
+            amount: parseFloat(getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount']).replace(/[^0-9.]/g, '')) || 50000,
+            category: (getFieldVal(r, ['category', 'type', 'head', 'vendor category']) as any) || 'Raw Material',
+            status: (getFieldVal(r, ['status', 'payment status', 'state']) as any) || 'Pending',
+            notes: getFieldVal(r, ['notes', 'remarks', 'description', 'details']),
           }));
 
           const previewData = {
@@ -235,16 +293,16 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
 
         if (targetCategory === 'debtors') {
           const newDebtors: DebtorItem[] = rows.map((r, idx) => ({
-            id: r.id || `DEB-${500 + idx}`,
-            clientEntity: r['client entity'] || r.client || r.name || 'Client',
-            invoiceRef: r['invoice ref'] || r.invoice || `INV-${100 + idx}`,
-            invoiceDate: r['invoice date'] || '2026-07-01',
-            dueDate: r['due date'] || '2026-08-01',
-            amount: parseFloat(r.amount?.replace(/[^0-9.]/g, '')) || 100000,
-            status: (r.status as any) || 'Pending',
-            contactEmail: r['contact email'] || r.email || '',
-            contactPerson: r['contact person'] || r.contact || '',
-            notes: r.notes || '',
+            id: getFieldVal(r, ['id', 'deb_id', 'debtor_id', 'invoice_id']) || `DEB-${500 + idx}`,
+            clientEntity: extractDebtorName(r),
+            invoiceRef: getFieldVal(r, ['invoiceRef', 'invoice ref', 'invoice_ref', 'invoice', 'inv no', 'bill ref']) || `INV-${100 + idx}`,
+            invoiceDate: getFieldVal(r, ['invoiceDate', 'invoice date', 'invoice_date', 'date', 'inv date']) || '2026-07-01',
+            dueDate: getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']) || '2026-08-01',
+            amount: parseFloat(getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount']).replace(/[^0-9.]/g, '')) || 100000,
+            status: (getFieldVal(r, ['status', 'payment status', 'state']) as any) || 'Pending',
+            contactEmail: getFieldVal(r, ['contactEmail', 'contact email', 'email', 'mail']),
+            contactPerson: getFieldVal(r, ['contactPerson', 'contact person', 'contact', 'person']),
+            notes: getFieldVal(r, ['notes', 'remarks', 'description', 'details']),
           }));
 
           setParsedPreview({
@@ -256,14 +314,14 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
           });
         } else if (targetCategory === 'creditors') {
           const newCreditors: CreditorItem[] = rows.map((r, idx) => ({
-            id: r.id || `CRE-${500 + idx}`,
-            vendorEntity: r['vendor entity'] || r.vendor || 'Vendor',
-            invoiceRef: r['invoice ref'] || r.invoice || `BILL-${100 + idx}`,
-            dueDate: r['due date'] || '2026-08-05',
-            amount: parseFloat(r.amount?.replace(/[^0-9.]/g, '')) || 50000,
-            category: (r.category as any) || 'Raw Material',
-            status: (r.status as any) || 'Pending',
-            notes: r.notes || '',
+            id: getFieldVal(r, ['id', 'cre_id', 'creditor_id', 'bill_id']) || `CRE-${500 + idx}`,
+            vendorEntity: extractCreditorName(r),
+            invoiceRef: getFieldVal(r, ['invoiceRef', 'invoice ref', 'invoice_ref', 'invoice', 'inv no', 'bill ref']) || `BILL-${100 + idx}`,
+            dueDate: getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']) || '2026-08-05',
+            amount: parseFloat(getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount']).replace(/[^0-9.]/g, '')) || 50000,
+            category: (getFieldVal(r, ['category', 'type', 'head', 'vendor category']) as any) || 'Raw Material',
+            status: (getFieldVal(r, ['status', 'payment status', 'state']) as any) || 'Pending',
+            notes: getFieldVal(r, ['notes', 'remarks', 'description', 'details']),
           }));
 
           setParsedPreview({
