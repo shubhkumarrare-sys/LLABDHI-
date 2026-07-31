@@ -11,10 +11,13 @@ import {
   LogOut,
 } from 'lucide-react';
 
+import { FileSpreadsheet } from 'lucide-react';
+
 interface NavbarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   openAiChat: () => void;
+  openGoogleSheetSync?: () => void;
   overdueCount: number;
   onLogout?: () => void;
 }
@@ -23,6 +26,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   setActiveTab,
   openAiChat,
+  openGoogleSheetSync,
   overdueCount,
   onLogout,
 }) => {
@@ -62,8 +66,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* AI Manager & Logout Action Buttons */}
-          <div className="flex items-center space-x-2.5">
+          {/* AI Manager, Google Sheet Sync & Logout Action Buttons */}
+          <div className="flex items-center space-x-2">
+            {openGoogleSheetSync && (
+              <button
+                onClick={openGoogleSheetSync}
+                className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs transition-all shadow-sm group cursor-pointer border border-emerald-500/30"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-200 group-hover:scale-110 transition-transform" />
+                <span className="hidden md:inline">Sync Google Sheet</span>
+              </button>
+            )}
+
             <button
               onClick={openAiChat}
               className="inline-flex items-center space-x-2 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs sm:text-sm transition-all shadow-sm hover:shadow group cursor-pointer"

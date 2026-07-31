@@ -9,6 +9,7 @@ import { AppsScriptAutomation } from './components/AppsScriptAutomation';
 import { SettingsManager } from './components/SettingsManager';
 import { AiCfoDrawer } from './components/AiCfoDrawer';
 import { LoginPage } from './components/LoginPage';
+import { GoogleSheetSyncModal } from './components/GoogleSheetSyncModal';
 
 import {
   DebtorItem,
@@ -49,9 +50,27 @@ export default function App() {
   const [emailLogs, setEmailLogs] = useState<EmailLogItem[]>(INITIAL_EMAIL_LOGS);
   const [settings, setSettings] = useState<AppSettings>(INITIAL_SETTINGS);
 
+  // Google Sheet Sync Modal State
+  const [isSheetSyncOpen, setIsSheetSyncOpen] = useState(false);
+
   // AI Drawer State
   const [isAiDrawerOpen, setIsAiDrawerOpen] = useState(false);
   const [aiDrawerPrompt, setAiDrawerPrompt] = useState<string | undefined>(undefined);
+
+  // Apply Data Updated from Google Sheet
+  const handleApplySheetData = (newData: {
+    debtors?: DebtorItem[];
+    creditors?: CreditorItem[];
+    emis?: EmiItem[];
+    compliance?: ComplianceItem[];
+    settings?: AppSettings;
+  }) => {
+    if (newData.debtors) setDebtors(newData.debtors);
+    if (newData.creditors) setCreditors(newData.creditors);
+    if (newData.emis) setEmis(newData.emis);
+    if (newData.compliance) setCompliance(newData.compliance);
+    if (newData.settings) setSettings(newData.settings);
+  };
 
   // Email Draft Modal State
   const [emailDraftModal, setEmailDraftModal] = useState<{
@@ -234,6 +253,7 @@ export default function App() {
           setAiDrawerPrompt(undefined);
           setIsAiDrawerOpen(true);
         }}
+        openGoogleSheetSync={() => setIsSheetSyncOpen(true)}
         overdueCount={overdueCount}
         onLogout={handleLogout}
       />
@@ -407,6 +427,20 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* GOOGLE SHEET SYNC MODAL */}
+      <GoogleSheetSyncModal
+        isOpen={isSheetSyncOpen}
+        onClose={() => setIsSheetSyncOpen(false)}
+        onApplySheetData={handleApplySheetData}
+        currentData={{
+          debtors,
+          creditors,
+          emis,
+          compliance,
+          settings,
+        }}
+      />
     </div>
   );
 }
