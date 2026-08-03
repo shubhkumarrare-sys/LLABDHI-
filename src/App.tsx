@@ -111,6 +111,14 @@ export default function App() {
     setEmis((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
   };
 
+  const handleAddEmi = (newItem: EmiItem) => {
+    setEmis((prev) => [newItem, ...prev]);
+  };
+
+  const handleDeleteEmi = (id: string) => {
+    setEmis((prev) => prev.filter((e) => e.id !== id));
+  };
+
   // Handlers for Compliance
   const handleUpdateCompliance = (updated: ComplianceItem) => {
     setCompliance((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
@@ -302,7 +310,12 @@ export default function App() {
         )}
 
         {activeTab === 'emis' && (
-          <EmiManager emis={emis} onUpdateEmi={handleUpdateEmi} />
+          <EmiManager
+            emis={emis}
+            onUpdateEmi={handleUpdateEmi}
+            onAddEmi={handleAddEmi}
+            onDeleteEmi={handleDeleteEmi}
+          />
         )}
 
         {activeTab === 'compliance' && (

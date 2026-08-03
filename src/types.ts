@@ -30,7 +30,7 @@ export interface CreditorItem {
 
 export interface EmiItem {
   id: string;
-  loanName: 'MG Cyberster EV Car Loan' | 'Saraswat Bank Mercedes-Benz Car Loan';
+  loanName: string;
   vehicleModel: string;
   lenderBank: string;
   accountNo: string;

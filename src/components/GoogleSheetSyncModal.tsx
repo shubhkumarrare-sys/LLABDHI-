@@ -169,7 +169,7 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
 
         if (spreadsheetId) {
           // Attempt to fetch public CSV exports for tabs
-          const tabsToFetch = ['Debtors', 'Creditors', 'EMIs', 'LLP_Compliance'];
+          const tabsToFetch = ['Debtors', 'Creditors', 'EMIs', 'EMI', 'Loans', 'LLP_Compliance', 'Compliance'];
           const fetchedResults: any = {};
 
           for (const tabName of tabsToFetch) {
@@ -219,10 +219,27 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
             notes: getFieldVal(r, ['notes', 'remarks', 'description', 'details']),
           }));
 
+          const rawEmiRows = fetchedResults['EMIs'] || fetchedResults['EMI'] || fetchedResults['Loans'] || fetchedResults['Emi'] || [];
+          const newEmis: EmiItem[] = rawEmiRows.map((r: any, idx: number) => ({
+            id: getFieldVal(r, ['id', 'emi_id', 'loan_id']) || `EMI-${300 + idx}`,
+            loanName: getFieldVal(r, ['loanName', 'loan name', 'loan_name', 'party', 'party name', 'bank name', 'loan', 'lender', 'particulars', 'name']) || 'Vehicle Loan',
+            vehicleModel: getFieldVal(r, ['vehicleModel', 'vehicle model', 'vehicle_model', 'vehicle', 'model', 'details', 'description', 'particulars']) || 'Vehicle',
+            lenderBank: getFieldVal(r, ['lenderBank', 'lender bank', 'lender_bank', 'bank', 'bank name', 'lender', 'institution']) || 'Lender Bank',
+            accountNo: getFieldVal(r, ['accountNo', 'account no', 'account_no', 'loan account', 'account', 'acc no']) || `LOAN-${1000 + idx}`,
+            totalLoanValue: parseFloat(getFieldVal(r, ['totalLoanValue', 'total loan value', 'total_loan_value', 'loan amount', 'sanctioned amount', 'amount']).replace(/[^0-9.]/g, '')) || 5000000,
+            remainingBalance: parseFloat(getFieldVal(r, ['remainingBalance', 'remaining balance', 'remaining_balance', 'balance', 'principal remaining', 'outstanding']).replace(/[^0-9.]/g, '')) || 2500000,
+            monthlyEmi: parseFloat(getFieldVal(r, ['monthlyEmi', 'monthly emi', 'monthly_emi', 'emi amount', 'emi', 'installment']).replace(/[^0-9.]/g, '')) || 50000,
+            dueDayOfMonth: parseInt(getFieldVal(r, ['dueDayOfMonth', 'due day', 'due_day', 'day']).replace(/[^0-9]/g, '')) || 5,
+            nextDueDate: getFieldVal(r, ['nextDueDate', 'next due date', 'next_due_date', 'due date', 'due_date', 'pay date']) || '2026-08-05',
+            status: (getFieldVal(r, ['status', 'state', 'payment status']) as any) || 'Upcoming',
+            lastPaymentDate: getFieldVal(r, ['lastPaymentDate', 'last payment date', 'last_payment_date', 'last paid date']),
+            lastPaymentRef: getFieldVal(r, ['lastPaymentRef', 'last payment ref', 'last_payment_ref', 'payment ref', 'reference']),
+          }));
+
           const previewData = {
             debtors: newDebtors.length > 0 ? newDebtors : currentData.debtors,
             creditors: newCreditors.length > 0 ? newCreditors : currentData.creditors,
-            emis: currentData.emis,
+            emis: newEmis.length > 0 ? newEmis : currentData.emis,
             compliance: currentData.compliance,
             settings: currentData.settings,
           };
@@ -230,14 +247,14 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
           setParsedPreview({
             debtorsCount: newDebtors.length,
             creditorsCount: newCreditors.length,
-            emisCount: 0,
+            emisCount: newEmis.length,
             complianceCount: 0,
             data: previewData,
           });
 
           setStatusMessage({
             type: 'success',
-            text: `Successfully connected to Google Sheet! Found ${newDebtors.length} Debtors and ${newCreditors.length} Creditors ready to update.`,
+            text: `Successfully connected to Google Sheet! Found ${newDebtors.length} Debtors, ${newCreditors.length} Creditors, and ${newEmis.length} EMI Loan Parties ready to update.`,
           });
         } else {
           // Check if it's a direct Apps Script JSON Web App endpoint
@@ -330,6 +347,30 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
             emisCount: 0,
             complianceCount: 0,
             data: { creditors: newCreditors },
+          });
+        } else if (targetCategory === 'emis') {
+          const newEmis: EmiItem[] = rows.map((r, idx) => ({
+            id: getFieldVal(r, ['id', 'emi_id', 'loan_id']) || `EMI-${500 + idx}`,
+            loanName: getFieldVal(r, ['loanName', 'loan name', 'loan_name', 'party', 'party name', 'bank name', 'loan', 'lender', 'particulars', 'name']) || 'Vehicle Loan',
+            vehicleModel: getFieldVal(r, ['vehicleModel', 'vehicle model', 'vehicle_model', 'vehicle', 'model', 'details', 'description', 'particulars']) || 'Vehicle',
+            lenderBank: getFieldVal(r, ['lenderBank', 'lender bank', 'lender_bank', 'bank', 'bank name', 'lender', 'institution']) || 'Lender Bank',
+            accountNo: getFieldVal(r, ['accountNo', 'account no', 'account_no', 'loan account', 'account', 'acc no']) || `LOAN-${1000 + idx}`,
+            totalLoanValue: parseFloat(getFieldVal(r, ['totalLoanValue', 'total loan value', 'total_loan_value', 'loan amount', 'sanctioned amount', 'amount']).replace(/[^0-9.]/g, '')) || 5000000,
+            remainingBalance: parseFloat(getFieldVal(r, ['remainingBalance', 'remaining balance', 'remaining_balance', 'balance', 'principal remaining', 'outstanding']).replace(/[^0-9.]/g, '')) || 2500000,
+            monthlyEmi: parseFloat(getFieldVal(r, ['monthlyEmi', 'monthly emi', 'monthly_emi', 'emi amount', 'emi', 'installment']).replace(/[^0-9.]/g, '')) || 50000,
+            dueDayOfMonth: parseInt(getFieldVal(r, ['dueDayOfMonth', 'due day', 'due_day', 'day']).replace(/[^0-9]/g, '')) || 5,
+            nextDueDate: getFieldVal(r, ['nextDueDate', 'next due date', 'next_due_date', 'due date', 'due_date', 'pay date']) || '2026-08-05',
+            status: (getFieldVal(r, ['status', 'state', 'payment status']) as any) || 'Upcoming',
+            lastPaymentDate: getFieldVal(r, ['lastPaymentDate', 'last payment date', 'last_payment_date', 'last paid date']),
+            lastPaymentRef: getFieldVal(r, ['lastPaymentRef', 'last payment ref', 'last_payment_ref', 'payment ref', 'reference']),
+          }));
+
+          setParsedPreview({
+            debtorsCount: 0,
+            creditorsCount: 0,
+            emisCount: newEmis.length,
+            complianceCount: 0,
+            data: { emis: newEmis },
           });
         }
 
@@ -485,6 +526,9 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
                 <p>
                   Creditors columns: <code className="font-mono">Vendor Entity, Invoice Ref, Due Date, Amount, Category, Status</code>
                 </p>
+                <p>
+                  EMIs / Loans columns: <code className="font-mono">Party Name / Loan Name, Lender Bank, Vehicle Model, Monthly EMI, Due Date, Remaining Balance</code>
+                </p>
               </div>
             </div>
           )}
@@ -501,6 +545,7 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
                 >
                   <option value="debtors">Debtors (Receivables)</option>
                   <option value="creditors">Creditors (Payables)</option>
+                  <option value="emis">EMIs & Loan Parties</option>
                 </select>
               </div>
 

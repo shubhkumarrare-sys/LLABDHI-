@@ -10,17 +10,67 @@ import {
   X,
   CreditCard,
   Building,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 
 interface EmiManagerProps {
   emis: EmiItem[];
   onUpdateEmi: (updatedItem: EmiItem) => void;
+  onAddEmi?: (newItem: EmiItem) => void;
+  onDeleteEmi?: (id: string) => void;
 }
 
-export const EmiManager: React.FC<EmiManagerProps> = ({ emis, onUpdateEmi }) => {
+export const EmiManager: React.FC<EmiManagerProps> = ({
+  emis,
+  onUpdateEmi,
+  onAddEmi,
+  onDeleteEmi,
+}) => {
   const [selectedEmi, setSelectedEmi] = useState<EmiItem | null>(null);
   const [lastPaymentRef, setLastPaymentRef] = useState('');
   const [lastPaymentDate, setLastPaymentDate] = useState('2026-07-30');
+
+  // Add EMI state
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [newLoanName, setNewLoanName] = useState('');
+  const [newVehicleModel, setNewVehicleModel] = useState('');
+  const [newLenderBank, setNewLenderBank] = useState('');
+  const [newAccountNo, setNewAccountNo] = useState('');
+  const [newTotalLoanValue, setNewTotalLoanValue] = useState(5000000);
+  const [newRemainingBalance, setNewRemainingBalance] = useState(3500000);
+  const [newMonthlyEmi, setNewMonthlyEmi] = useState(75000);
+  const [newDueDay, setNewDueDay] = useState(5);
+  const [newNextDueDate, setNewNextDueDate] = useState('2026-08-05');
+
+  const handleAddSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newLoanName.trim()) return;
+
+    const newItem: EmiItem = {
+      id: `EMI-${Date.now()}`,
+      loanName: newLoanName.trim(),
+      vehicleModel: newVehicleModel.trim() || 'Vehicle / Equipment',
+      lenderBank: newLenderBank.trim() || 'Lender Bank',
+      accountNo: newAccountNo.trim() || `LOAN-${Math.floor(1000 + Math.random() * 9000)}`,
+      totalLoanValue: Number(newTotalLoanValue) || 1000000,
+      remainingBalance: Number(newRemainingBalance) || 500000,
+      monthlyEmi: Number(newMonthlyEmi) || 25000,
+      dueDayOfMonth: Number(newDueDay) || 5,
+      nextDueDate: newNextDueDate || '2026-08-05',
+      status: 'Upcoming',
+    };
+
+    if (onAddEmi) {
+      onAddEmi(newItem);
+    }
+
+    setIsAddModalOpen(false);
+    setNewLoanName('');
+    setNewVehicleModel('');
+    setNewLenderBank('');
+    setNewAccountNo('');
+  };
 
   const handleRecordPaymentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,26 +108,36 @@ export const EmiManager: React.FC<EmiManagerProps> = ({ emis, onUpdateEmi }) => 
           <div className="flex items-center space-x-2">
             <Car className="w-5 h-5 text-indigo-600" />
             <h1 className="text-xl font-bold text-slate-900">
-              Vehicle Loan Repayment Schedules (EMIs)
+              Vehicle & Loan Repayment Schedules (EMIs)
             </h1>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Tracking loan amortization schedules for MG Cyberster EV Convertible & Saraswat Bank Mercedes-Benz GLE 450d.
+            Tracking loan repayment schedules, EMI commitments, and bank amortization for all vehicle & equipment loans.
           </p>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 text-right bg-slate-50 p-3 rounded-lg border border-slate-200">
-          <div>
-            <span className="text-[10px] text-slate-400 block font-semibold uppercase">Total Loan Value</span>
-            <span className="text-xs font-bold text-slate-800">{formatINR(totalLoanValue)}</span>
-          </div>
-          <div>
-            <span className="text-[10px] text-slate-400 block font-semibold uppercase">Total Remaining</span>
-            <span className="text-xs font-bold text-amber-700">{formatINR(totalRemaining)}</span>
-          </div>
-          <div>
-            <span className="text-[10px] text-slate-400 block font-semibold uppercase">Monthly EMI Outflow</span>
-            <span className="text-xs font-bold text-rose-600">{formatINR(totalMonthlyEmi)}</span>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center space-x-1.5 transition cursor-pointer shadow"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Loan / Party</span>
+          </button>
+
+          <div className="grid grid-cols-3 gap-3 text-right bg-slate-50 p-3 rounded-lg border border-slate-200">
+            <div>
+              <span className="text-[10px] text-slate-400 block font-semibold uppercase">Total Loan Value</span>
+              <span className="text-xs font-bold text-slate-800">{formatINR(totalLoanValue)}</span>
+            </div>
+            <div>
+              <span className="text-[10px] text-slate-400 block font-semibold uppercase">Total Remaining</span>
+              <span className="text-xs font-bold text-amber-700">{formatINR(totalRemaining)}</span>
+            </div>
+            <div>
+              <span className="text-[10px] text-slate-400 block font-semibold uppercase">Monthly EMI Outflow</span>
+              <span className="text-xs font-bold text-rose-600">{formatINR(totalMonthlyEmi)}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -282,6 +342,162 @@ export const EmiManager: React.FC<EmiManagerProps> = ({ emis, onUpdateEmi }) => 
                   className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold cursor-pointer shadow"
                 >
                   Confirm EMI Paid & Advance Schedule
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ADD NEW LOAN / PARTY MODAL */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center space-x-2">
+                <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600">
+                  <Car className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">Add New EMI Loan / Party</h3>
+                  <p className="text-xs text-slate-500">Add a new financing facility or vehicle/equipment loan</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAddModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddSubmit} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Loan Party / Facility Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. HDFC Commercial Vehicle Loan / Tata Motors Finance"
+                  value={newLoanName}
+                  onChange={(e) => setNewLoanName(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Lender Bank / Institution *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. HDFC Bank Ltd"
+                    value={newLenderBank}
+                    onChange={(e) => setNewLenderBank(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Vehicle / Asset Model *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Volvo FH Truck (MH 12 LL 9009)"
+                    value={newVehicleModel}
+                    onChange={(e) => setNewVehicleModel(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Loan Account Number
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. HDFC-CVL-88219"
+                    value={newAccountNo}
+                    onChange={(e) => setNewAccountNo(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Next Due Date *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={newNextDueDate}
+                    onChange={(e) => setNewNextDueDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Sanctioned Loan (₹)
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={newTotalLoanValue}
+                    onChange={(e) => setNewTotalLoanValue(Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Remaining Balance (₹)
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={newRemainingBalance}
+                    onChange={(e) => setNewRemainingBalance(Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Monthly EMI (₹)
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={newMonthlyEmi}
+                    onChange={(e) => setNewMonthlyEmi(Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 font-bold text-rose-600"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 font-semibold cursor-pointer hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold cursor-pointer shadow"
+                >
+                  Add EMI Loan Facility
                 </button>
               </div>
             </form>
