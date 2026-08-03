@@ -41,11 +41,23 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState('dashboard');
 
-  // Master Operational State (LLABDHI OPS NODE)
-  const [debtors, setDebtors] = useState<DebtorItem[]>(INITIAL_DEBTORS);
-  const [creditors, setCreditors] = useState<CreditorItem[]>(INITIAL_CREDITORS);
-  const [emis, setEmis] = useState<EmiItem[]>(INITIAL_EMIS);
-  const [compliance, setCompliance] = useState<ComplianceItem[]>(INITIAL_COMPLIANCE);
+  // Master Operational State (LLABDHI OPS NODE) with localStorage persistence
+  const [debtors, setDebtors] = useState<DebtorItem[]>(() => {
+    const saved = localStorage.getItem('llabdhi_debtors');
+    return saved ? JSON.parse(saved) : INITIAL_DEBTORS;
+  });
+  const [creditors, setCreditors] = useState<CreditorItem[]>(() => {
+    const saved = localStorage.getItem('llabdhi_creditors');
+    return saved ? JSON.parse(saved) : INITIAL_CREDITORS;
+  });
+  const [emis, setEmis] = useState<EmiItem[]>(() => {
+    const saved = localStorage.getItem('llabdhi_emis');
+    return saved ? JSON.parse(saved) : INITIAL_EMIS;
+  });
+  const [compliance, setCompliance] = useState<ComplianceItem[]>(() => {
+    const saved = localStorage.getItem('llabdhi_compliance');
+    return saved ? JSON.parse(saved) : INITIAL_COMPLIANCE;
+  });
   const [calendarLogs, setCalendarLogs] = useState<CalendarLogItem[]>(INITIAL_CALENDAR_LOGS);
   const [emailLogs, setEmailLogs] = useState<EmailLogItem[]>(INITIAL_EMAIL_LOGS);
   const [settings, setSettings] = useState<AppSettings>(INITIAL_SETTINGS);
@@ -65,10 +77,22 @@ export default function App() {
     compliance?: ComplianceItem[];
     settings?: AppSettings;
   }) => {
-    if (newData.debtors) setDebtors(newData.debtors);
-    if (newData.creditors) setCreditors(newData.creditors);
-    if (newData.emis) setEmis(newData.emis);
-    if (newData.compliance) setCompliance(newData.compliance);
+    if (newData.debtors) {
+      setDebtors(newData.debtors);
+      localStorage.setItem('llabdhi_debtors', JSON.stringify(newData.debtors));
+    }
+    if (newData.creditors) {
+      setCreditors(newData.creditors);
+      localStorage.setItem('llabdhi_creditors', JSON.stringify(newData.creditors));
+    }
+    if (newData.emis) {
+      setEmis(newData.emis);
+      localStorage.setItem('llabdhi_emis', JSON.stringify(newData.emis));
+    }
+    if (newData.compliance) {
+      setCompliance(newData.compliance);
+      localStorage.setItem('llabdhi_compliance', JSON.stringify(newData.compliance));
+    }
     if (newData.settings) setSettings(newData.settings);
   };
 
@@ -90,38 +114,86 @@ export default function App() {
 
   // Handlers for Debtors
   const handleUpdateDebtor = (updated: DebtorItem) => {
-    setDebtors((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+    setDebtors((prev) => {
+      const next = prev.map((d) => (d.id === updated.id ? updated : d));
+      localStorage.setItem('llabdhi_debtors', JSON.stringify(next));
+      return next;
+    });
   };
 
   const handleAddDebtor = (newItem: DebtorItem) => {
-    setDebtors((prev) => [newItem, ...prev]);
+    setDebtors((prev) => {
+      const next = [newItem, ...prev];
+      localStorage.setItem('llabdhi_debtors', JSON.stringify(next));
+      return next;
+    });
   };
 
   // Handlers for Creditors
   const handleUpdateCreditor = (updated: CreditorItem) => {
-    setCreditors((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+    setCreditors((prev) => {
+      const next = prev.map((c) => (c.id === updated.id ? updated : c));
+      localStorage.setItem('llabdhi_creditors', JSON.stringify(next));
+      return next;
+    });
   };
 
   const handleAddCreditor = (newItem: CreditorItem) => {
-    setCreditors((prev) => [newItem, ...prev]);
+    setCreditors((prev) => {
+      const next = [newItem, ...prev];
+      localStorage.setItem('llabdhi_creditors', JSON.stringify(next));
+      return next;
+    });
   };
 
   // Handlers for EMIs
   const handleUpdateEmi = (updated: EmiItem) => {
-    setEmis((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+    setEmis((prev) => {
+      const next = prev.map((e) => (e.id === updated.id ? updated : e));
+      localStorage.setItem('llabdhi_emis', JSON.stringify(next));
+      return next;
+    });
   };
 
   const handleAddEmi = (newItem: EmiItem) => {
-    setEmis((prev) => [newItem, ...prev]);
+    setEmis((prev) => {
+      const next = [newItem, ...prev];
+      localStorage.setItem('llabdhi_emis', JSON.stringify(next));
+      return next;
+    });
   };
 
   const handleDeleteEmi = (id: string) => {
-    setEmis((prev) => prev.filter((e) => e.id !== id));
+    setEmis((prev) => {
+      const next = prev.filter((e) => e.id !== id);
+      localStorage.setItem('llabdhi_emis', JSON.stringify(next));
+      return next;
+    });
   };
 
   // Handlers for Compliance
   const handleUpdateCompliance = (updated: ComplianceItem) => {
-    setCompliance((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+    setCompliance((prev) => {
+      const next = prev.map((c) => (c.id === updated.id ? updated : c));
+      localStorage.setItem('llabdhi_compliance', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const handleAddCompliance = (newItem: ComplianceItem) => {
+    setCompliance((prev) => {
+      const next = [newItem, ...prev];
+      localStorage.setItem('llabdhi_compliance', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const handleDeleteCompliance = (id: string) => {
+    setCompliance((prev) => {
+      const next = prev.filter((c) => c.id !== id);
+      localStorage.setItem('llabdhi_compliance', JSON.stringify(next));
+      return next;
+    });
   };
 
   // Trigger AI Draft Payment Reminder Email for Client Group
@@ -322,6 +394,8 @@ export default function App() {
           <ComplianceManager
             complianceList={compliance}
             onUpdateCompliance={handleUpdateCompliance}
+            onAddCompliance={handleAddCompliance}
+            onDeleteCompliance={handleDeleteCompliance}
           />
         )}
 

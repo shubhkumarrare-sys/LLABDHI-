@@ -230,6 +230,21 @@ export const INITIAL_CREDITORS: CreditorItem[] = [
 
 export const INITIAL_EMIS: EmiItem[] = [
   {
+    id: 'EMI-300',
+    loanName: 'Deutsche Bank Business Term Loan',
+    vehicleModel: 'Machinery & Working Capital Facility',
+    lenderBank: 'Deutsche Bank AG',
+    accountNo: 'DB-LOAN-883901',
+    totalLoanValue: 18000000,
+    remainingBalance: 12500000,
+    monthlyEmi: 310000,
+    dueDayOfMonth: 10,
+    nextDueDate: '2026-08-10',
+    status: 'Upcoming',
+    lastPaymentDate: '2026-07-10',
+    lastPaymentRef: 'NEFT/DBAG/JUL10/4482',
+  },
+  {
     id: 'EMI-301',
     loanName: 'MG Cyberster EV Car Loan',
     vehicleModel: 'MG Cyberster EV Convertible (MH 12 LL 7007)',

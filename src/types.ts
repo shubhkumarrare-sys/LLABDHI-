@@ -46,10 +46,10 @@ export interface EmiItem {
 
 export interface ComplianceItem {
   id: string;
-  title: 'GST GSTR-1' | 'GST GSTR-3B' | 'TDS Deposit' | 'Advance Tax' | 'DIR-3 KYC' | 'LLP Form 8' | 'LLP Form 11';
+  title: string;
   period: string;
   dueDate: string; // YYYY-MM-DD
-  governingAuthority: 'GSTN Portal' | 'Income Tax Dept' | 'MCA V3 Portal';
+  governingAuthority: 'GSTN Portal' | 'Income Tax Dept' | 'MCA V3 Portal' | string;
   status: ItemStatus;
   filingDate?: string;
   arnChallanRef?: string;

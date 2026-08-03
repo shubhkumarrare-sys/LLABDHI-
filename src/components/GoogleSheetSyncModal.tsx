@@ -41,7 +41,7 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
   currentData,
 }) => {
   const [activeTab, setActiveTab] = useState<'urlSync' | 'pasteCsv' | 'pasteJson'>('urlSync');
-  const [sheetUrl, setSheetUrl] = useState('');
+  const [sheetUrl, setSheetUrl] = useState(() => localStorage.getItem('llabdhi_sheet_url') || '');
   const [rawText, setRawText] = useState('');
   const [targetCategory, setTargetCategory] = useState<'all' | 'debtors' | 'creditors' | 'emis' | 'compliance'>('all');
   const [isLoading, setIsLoading] = useState(false);
@@ -236,11 +236,31 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
             lastPaymentRef: getFieldVal(r, ['lastPaymentRef', 'last payment ref', 'last_payment_ref', 'payment ref', 'reference']),
           }));
 
+          const rawComplianceRows =
+            fetchedResults['LLP_Compliance'] ||
+            fetchedResults['Compliance'] ||
+            fetchedResults['Statutory_Compliance'] ||
+            fetchedResults['Compliance_Calendar'] ||
+            fetchedResults['LLP Compliance'] ||
+            [];
+          const newCompliance: ComplianceItem[] = rawComplianceRows.map((r: any, idx: number) => ({
+            id: getFieldVal(r, ['id', 'cmp_id', 'compliance_id']) || `CMP-${400 + idx}`,
+            title: getFieldVal(r, ['title', 'complianceName', 'compliance_name', 'name', 'particulars', 'type', 'head', 'task']) || 'Statutory Compliance',
+            period: getFieldVal(r, ['period', 'financial_period', 'fy', 'month', 'year']) || 'FY 2026-27',
+            dueDate: getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']) || '2026-08-20',
+            governingAuthority: (getFieldVal(r, ['governingAuthority', 'governing authority', 'authority', 'portal', 'dept', 'department']) as any) || 'GSTN Portal',
+            status: (getFieldVal(r, ['status', 'state', 'filing status']) as any) || 'Pending',
+            filingDate: getFieldVal(r, ['filingDate', 'filing date', 'filing_date', 'filed on']),
+            arnChallanRef: getFieldVal(r, ['arnChallanRef', 'arn challan ref', 'arn_challan_ref', 'arn', 'challan ref', 'ref']),
+            estimatedAmount: parseFloat(getFieldVal(r, ['estimatedAmount', 'estimated amount', 'estimated_amount', 'amount', 'tax liability', 'fees']).replace(/[^0-9.]/g, '')) || undefined,
+            responsibility: getFieldVal(r, ['responsibility', 'responsible', 'assigned to', 'person', 'consultant']),
+          }));
+
           const previewData = {
             debtors: newDebtors.length > 0 ? newDebtors : currentData.debtors,
             creditors: newCreditors.length > 0 ? newCreditors : currentData.creditors,
             emis: newEmis.length > 0 ? newEmis : currentData.emis,
-            compliance: currentData.compliance,
+            compliance: newCompliance.length > 0 ? newCompliance : currentData.compliance,
             settings: currentData.settings,
           };
 
@@ -248,13 +268,17 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
             debtorsCount: newDebtors.length,
             creditorsCount: newCreditors.length,
             emisCount: newEmis.length,
-            complianceCount: 0,
+            complianceCount: newCompliance.length,
             data: previewData,
           });
 
+          if (sheetUrl.trim()) {
+            localStorage.setItem('llabdhi_sheet_url', sheetUrl.trim());
+          }
+
           setStatusMessage({
             type: 'success',
-            text: `Successfully connected to Google Sheet! Found ${newDebtors.length} Debtors, ${newCreditors.length} Creditors, and ${newEmis.length} EMI Loan Parties ready to update.`,
+            text: `Successfully connected to Google Sheet! Found ${newDebtors.length} Debtors, ${newCreditors.length} Creditors, ${newEmis.length} EMI Loans, and ${newCompliance.length} Compliance items ready to update live.`,
           });
         } else {
           // Check if it's a direct Apps Script JSON Web App endpoint
@@ -371,6 +395,27 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
             emisCount: newEmis.length,
             complianceCount: 0,
             data: { emis: newEmis },
+          });
+        } else if (targetCategory === 'compliance') {
+          const newCompliance: ComplianceItem[] = rows.map((r, idx) => ({
+            id: getFieldVal(r, ['id', 'cmp_id', 'compliance_id']) || `CMP-${500 + idx}`,
+            title: getFieldVal(r, ['title', 'complianceName', 'compliance_name', 'name', 'particulars', 'type', 'head', 'task']) || 'Statutory Compliance',
+            period: getFieldVal(r, ['period', 'financial_period', 'fy', 'month', 'year']) || 'FY 2026-27',
+            dueDate: getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']) || '2026-08-20',
+            governingAuthority: (getFieldVal(r, ['governingAuthority', 'governing authority', 'authority', 'portal', 'dept', 'department']) as any) || 'GSTN Portal',
+            status: (getFieldVal(r, ['status', 'state', 'filing status']) as any) || 'Pending',
+            filingDate: getFieldVal(r, ['filingDate', 'filing date', 'filing_date', 'filed on']),
+            arnChallanRef: getFieldVal(r, ['arnChallanRef', 'arn challan ref', 'arn_challan_ref', 'arn', 'challan ref', 'ref']),
+            estimatedAmount: parseFloat(getFieldVal(r, ['estimatedAmount', 'estimated amount', 'estimated_amount', 'amount', 'tax liability', 'fees']).replace(/[^0-9.]/g, '')) || undefined,
+            responsibility: getFieldVal(r, ['responsibility', 'responsible', 'assigned to', 'person', 'consultant']),
+          }));
+
+          setParsedPreview({
+            debtorsCount: 0,
+            creditorsCount: 0,
+            emisCount: 0,
+            complianceCount: newCompliance.length,
+            data: { compliance: newCompliance },
           });
         }
 
@@ -529,6 +574,9 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
                 <p>
                   EMIs / Loans columns: <code className="font-mono">Party Name / Loan Name, Lender Bank, Vehicle Model, Monthly EMI, Due Date, Remaining Balance</code>
                 </p>
+                <p>
+                  LLP Compliance columns: <code className="font-mono">Title / Compliance Name, Governing Authority, Due Date, Period, Status, Responsibility</code>
+                </p>
               </div>
             </div>
           )}
@@ -546,6 +594,7 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
                   <option value="debtors">Debtors (Receivables)</option>
                   <option value="creditors">Creditors (Payables)</option>
                   <option value="emis">EMIs & Loan Parties</option>
+                  <option value="compliance">LLP Statutory Compliance</option>
                 </select>
               </div>
 

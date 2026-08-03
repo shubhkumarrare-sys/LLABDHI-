@@ -260,14 +260,23 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
               </div>
 
               {/* Action Footer */}
-              <div className="px-5 py-3 bg-slate-50 border-t border-slate-200">
+              <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center space-x-2">
                 <button
                   onClick={() => setSelectedEmi(item)}
-                  className="w-full py-2 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs flex items-center justify-center space-x-1.5 transition cursor-pointer shadow"
+                  className="flex-1 py-2 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs flex items-center justify-center space-x-1.5 transition cursor-pointer shadow"
                 >
                   <CreditCard className="w-3.5 h-3.5" />
-                  <span>Update EMI Payment & Bank Reference</span>
+                  <span>Update EMI Payment & Reference</span>
                 </button>
+                {onDeleteEmi && (
+                  <button
+                    onClick={() => onDeleteEmi(item.id)}
+                    title="Delete Loan Facility"
+                    className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 transition cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </div>
           );
