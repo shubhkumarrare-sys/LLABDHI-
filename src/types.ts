@@ -57,6 +57,13 @@ export interface ComplianceItem {
   responsibility?: string;
 }
 
+export interface GstPayableState {
+  mumbai: number;
+  chennai: number;
+  goa: number;
+  lastUpdated?: string;
+}
+
 export interface CalendarLogItem {
   id: string;
   timestamp: string;

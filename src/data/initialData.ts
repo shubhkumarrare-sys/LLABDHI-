@@ -6,6 +6,7 @@ import {
   CalendarLogItem,
   EmailLogItem,
   AppSettings,
+  GstPayableState,
 } from '../types';
 
 // Baseline date reference: Current local date in context is 2026-07-30
@@ -395,3 +396,10 @@ export const INITIAL_EMAIL_LOGS: EmailLogItem[] = [
     status: 'Sent',
   },
 ];
+
+export const INITIAL_GST_PAYABLE: GstPayableState = {
+  mumbai: 425000,
+  chennai: 280000,
+  goa: 145000,
+  lastUpdated: new Date().toISOString().split('T')[0],
+};

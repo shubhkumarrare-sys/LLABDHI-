@@ -20,6 +20,7 @@ import {
   EmailLogItem,
   AppSettings,
   ClientOverdueGroup,
+  GstPayableState,
 } from './types';
 
 import {
@@ -30,6 +31,7 @@ import {
   INITIAL_COMPLIANCE,
   INITIAL_CALENDAR_LOGS,
   INITIAL_EMAIL_LOGS,
+  INITIAL_GST_PAYABLE,
 } from './data/initialData';
 
 import { Sparkles, X, Copy, Check, Send, Mail } from 'lucide-react';
@@ -58,6 +60,15 @@ export default function App() {
     const saved = localStorage.getItem('llabdhi_compliance');
     return saved ? JSON.parse(saved) : INITIAL_COMPLIANCE;
   });
+  const [gstPayable, setGstPayable] = useState<GstPayableState>(() => {
+    const saved = localStorage.getItem('llabdhi_gst_payable');
+    return saved ? JSON.parse(saved) : INITIAL_GST_PAYABLE;
+  });
+
+  const handleUpdateGstPayable = (updated: GstPayableState) => {
+    setGstPayable(updated);
+    localStorage.setItem('llabdhi_gst_payable', JSON.stringify(updated));
+  };
   const [calendarLogs, setCalendarLogs] = useState<CalendarLogItem[]>(INITIAL_CALENDAR_LOGS);
   const [emailLogs, setEmailLogs] = useState<EmailLogItem[]>(INITIAL_EMAIL_LOGS);
   const [settings, setSettings] = useState<AppSettings>(INITIAL_SETTINGS);
@@ -346,6 +357,8 @@ export default function App() {
             creditors={creditors}
             emis={emis}
             compliance={compliance}
+            gstPayable={gstPayable}
+            onUpdateGstPayable={handleUpdateGstPayable}
             onNavigateTab={(tab) => setActiveTab(tab)}
             onOpenAiDraftEmail={(clientEntity) => {
               const grp = {
