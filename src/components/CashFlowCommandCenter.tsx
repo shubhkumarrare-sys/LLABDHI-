@@ -286,7 +286,7 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Live daily statutory GST liability tracker across plant & office locations
+                Live daily statutory GST liability tracker
               </p>
             </div>
           </div>
