@@ -364,53 +364,9 @@ export const INITIAL_COMPLIANCE: ComplianceItem[] = [
   },
 ];
 
-export const INITIAL_CALENDAR_LOGS: CalendarLogItem[] = [
-  {
-    id: 'CAL-001',
-    timestamp: '2026-07-29 09:30:12',
-    eventTitle: 'MG Cyberster EV Car Loan EMI Due (₹1,45,000)',
-    eventDate: '2026-08-01',
-    targetTab: 'EMIs',
-    itemRefId: 'EMI-301',
-    googleEventId: 'evt_gcal_emi_301_99201',
-    syncStatus: 'Synced',
-    syncId: 'SYNC-20260729-01',
-  },
-  {
-    id: 'CAL-002',
-    timestamp: '2026-07-29 09:30:14',
-    eventTitle: 'MCA DIR-3 KYC Deadline - Partners Filing',
-    eventDate: '2026-08-02',
-    targetTab: 'LLP_Compliance',
-    itemRefId: 'CMP-404',
-    googleEventId: 'evt_gcal_cmp_404_88102',
-    syncStatus: 'Synced',
-    syncId: 'SYNC-20260729-01',
-  },
-];
+export const INITIAL_CALENDAR_LOGS: CalendarLogItem[] = [];
 
-export const INITIAL_EMAIL_LOGS: EmailLogItem[] = [
-  {
-    id: 'EML-001',
-    timestamp: '2026-07-29 08:00:00',
-    recipient: 'shubhkumarrare@gmail.com',
-    subject: '[LLABDHI OPS NODE Alert] 5-Day Cash Flow & Upcoming Liabilities',
-    itemRef: 'Daily Summary (-1d relative to due date)',
-    triggerType: 'Upcoming (-3d)',
-    syncId: 'SYNC-EML-20260729',
-    status: 'Sent',
-  },
-  {
-    id: 'EML-002',
-    timestamp: '2026-07-28 08:00:00',
-    recipient: 'shubhkumarrare@gmail.com',
-    subject: '[LLABDHI OPS NODE Alert] High-Risk Overdue Receivable: Western Refrigeration',
-    itemRef: 'DEB-104 (₹18,40,000 Overdue)',
-    triggerType: 'Overdue',
-    syncId: 'SYNC-EML-20260728',
-    status: 'Sent',
-  },
-];
+export const INITIAL_EMAIL_LOGS: EmailLogItem[] = [];
 
 export const INITIAL_GST_PAYABLE: GstPayableState = {
   mumbai: { payable: 425000, receivable: 150000 },
