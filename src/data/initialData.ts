@@ -172,7 +172,7 @@ export const INITIAL_DEBTORS: DebtorItem[] = [
 export const INITIAL_CREDITORS: CreditorItem[] = [
   {
     id: 'CRE-201',
-    vendorEntity: 'Tata Steel Processing & Distribution',
+    vendorEntity: 'TATA STEEL PROCESSING & DISTRIBUTION LIMITED',
     invoiceRef: 'TSPDL/IN/88341',
     dueDate: '2026-08-02', // Due in 3 days
     amount: 1850000,
@@ -182,7 +182,7 @@ export const INITIAL_CREDITORS: CreditorItem[] = [
   },
   {
     id: 'CRE-202',
-    vendorEntity: 'Trumpf India Laser Solutions',
+    vendorEntity: 'TRUMPF INDIA LASER SOLUTIONS PVT LTD',
     invoiceRef: 'TR/AMC/2026-09',
     dueDate: '2026-08-03', // Due in 4 days
     amount: 320000,
@@ -192,19 +192,19 @@ export const INITIAL_CREDITORS: CreditorItem[] = [
   },
   {
     id: 'CRE-203',
-    vendorEntity: 'VRL Logistics Ltd',
+    vendorEntity: 'VRL LOGISTICS LTD',
     invoiceRef: 'VRL/FRT/9021',
-    dueDate: '2026-07-31', // Due tomorrow (1 day)
+    dueDate: '2026-07-31', // Overdue by 3 days
     amount: 145000,
     category: 'Logistics',
-    status: 'Pending',
+    status: 'Overdue',
     notes: 'Interstate heavy freight transport Pune-Chennai.',
   },
   {
     id: 'CRE-204',
-    vendorEntity: 'Maharastra State Electricity Distribution (MSEDCL)',
+    vendorEntity: 'MAHARASHTRA STATE ELECTRICITY DISTRIBUTION CO. LTD (MSEDCL)',
     invoiceRef: 'MSEDCL/IND/0726',
-    dueDate: '2026-08-04', // Due in 5 days
+    dueDate: '2026-08-04', // Due in 1 day
     amount: 460000,
     category: 'Utilities',
     status: 'Pending',
@@ -212,9 +212,9 @@ export const INITIAL_CREDITORS: CreditorItem[] = [
   },
   {
     id: 'CRE-207',
-    vendorEntity: 'Essar Steel India (Processing Division)',
+    vendorEntity: 'ESSAR STEEL INDIA LIMITED (PROCESSING DIVISION)',
     invoiceRef: 'ESSAR/PNE/8812',
-    dueDate: '2026-08-12', // Due in 13 days
+    dueDate: '2026-08-12', // Due in 9 days
     amount: 1250000,
     category: 'Raw Material',
     status: 'Pending',
@@ -222,9 +222,9 @@ export const INITIAL_CREDITORS: CreditorItem[] = [
   },
   {
     id: 'CRE-208',
-    vendorEntity: 'Linde India Industrial Gases',
+    vendorEntity: 'LINDE INDIA LIMITED',
     invoiceRef: 'LINDE/GAS/7721',
-    dueDate: '2026-08-24', // Due in 25 days (Monthly window)
+    dueDate: '2026-08-24', // Due in 21 days
     amount: 210000,
     category: 'Utilities',
     status: 'Pending',
@@ -232,7 +232,7 @@ export const INITIAL_CREDITORS: CreditorItem[] = [
   },
   {
     id: 'CRE-205',
-    vendorEntity: 'Jindal Aluminium Ltd',
+    vendorEntity: 'JINDAL ALUMINIUM LIMITED',
     invoiceRef: 'JAL/AL/4412',
     dueDate: '2026-07-22', // Overdue
     amount: 780000,
@@ -242,7 +242,7 @@ export const INITIAL_CREDITORS: CreditorItem[] = [
   },
   {
     id: 'CRE-206',
-    vendorEntity: 'AkzoNobel India (Powder Coatings)',
+    vendorEntity: 'AKZONOBEL INDIA LIMITED',
     invoiceRef: 'AKZ/PC/3310',
     dueDate: '2026-07-28',
     amount: 290000,

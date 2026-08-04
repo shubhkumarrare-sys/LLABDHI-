@@ -49,7 +49,7 @@ export default function App() {
     return saved ? JSON.parse(saved) : INITIAL_DEBTORS;
   });
   const [creditors, setCreditors] = useState<CreditorItem[]>(() => {
-    const saved = localStorage.getItem('llabdhi_creditors');
+    const saved = localStorage.getItem('llabdhi_creditors_v2');
     return saved ? JSON.parse(saved) : INITIAL_CREDITORS;
   });
   const [emis, setEmis] = useState<EmiItem[]>(() => {
@@ -109,7 +109,7 @@ export default function App() {
     }
     if (newData.creditors) {
       setCreditors(newData.creditors);
-      localStorage.setItem('llabdhi_creditors', JSON.stringify(newData.creditors));
+      localStorage.setItem('llabdhi_creditors_v2', JSON.stringify(newData.creditors));
     }
     if (newData.emis) {
       setEmis(newData.emis);
@@ -159,7 +159,7 @@ export default function App() {
   const handleUpdateCreditor = (updated: CreditorItem) => {
     setCreditors((prev) => {
       const next = prev.map((c) => (c.id === updated.id ? updated : c));
-      localStorage.setItem('llabdhi_creditors', JSON.stringify(next));
+      localStorage.setItem('llabdhi_creditors_v2', JSON.stringify(next));
       return next;
     });
   };
@@ -167,7 +167,7 @@ export default function App() {
   const handleAddCreditor = (newItem: CreditorItem) => {
     setCreditors((prev) => {
       const next = [newItem, ...prev];
-      localStorage.setItem('llabdhi_creditors', JSON.stringify(next));
+      localStorage.setItem('llabdhi_creditors_v2', JSON.stringify(next));
       return next;
     });
   };
