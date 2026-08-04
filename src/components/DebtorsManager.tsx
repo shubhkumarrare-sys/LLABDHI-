@@ -82,13 +82,13 @@ export const DebtorsManager: React.FC<DebtorsManagerProps> = ({
 
     const created: DebtorItem = {
       id: `DEB-${Math.floor(100 + Math.random() * 900)}`,
-      clientEntity: newInvoice.clientEntity || 'Client Entity',
+      clientEntity: newInvoice.clientEntity || 'Entity Name',
       invoiceRef: newInvoice.invoiceRef || `LL/2026-27/${Math.floor(500 + Math.random() * 500)}`,
       invoiceDate: newInvoice.invoiceDate || '2026-07-30',
       dueDate: newInvoice.dueDate || '2026-08-30',
       amount: Number(newInvoice.amount),
       status: (newInvoice.status as any) || 'Pending',
-      contactEmail: newInvoice.contactEmail || 'ap@client.com',
+      contactEmail: newInvoice.contactEmail || 'ap@company.com',
       notes: newInvoice.notes || '',
     };
 
@@ -105,7 +105,7 @@ export const DebtorsManager: React.FC<DebtorsManagerProps> = ({
             Debtors & Accounts Receivable (AR) Management
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Track client invoices by entity reference, manage payment updates with ARN/Challan references, and run AI overdue follow-ups.
+            Track invoices by entity reference, manage payment updates with ARN/Challan references, and run AI overdue follow-ups.
           </p>
         </div>
 
@@ -114,7 +114,7 @@ export const DebtorsManager: React.FC<DebtorsManagerProps> = ({
           className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs transition cursor-pointer shadow shrink-0"
         >
           <Plus className="w-4 h-4" />
-          <span>New Debtor Invoice</span>
+          <span>New Invoice</span>
         </button>
       </div>
 
@@ -124,7 +124,7 @@ export const DebtorsManager: React.FC<DebtorsManagerProps> = ({
           <div className="flex items-center space-x-2">
             <AlertOctagon className="w-5 h-5 text-rose-600" />
             <h2 className="text-base font-bold text-slate-900">
-              Overdue Receivables Analysis (Grouped by Client Entity)
+              Overdue Receivables Analysis (Grouped by Entity)
             </h2>
           </div>
           <span className="text-xs font-semibold px-2.5 py-1 rounded bg-rose-50 text-rose-700 border border-rose-200">
@@ -134,7 +134,7 @@ export const DebtorsManager: React.FC<DebtorsManagerProps> = ({
 
         {overdueGroups.length === 0 ? (
           <div className="p-6 text-center text-slate-500 text-xs">
-            🎉 Great news! There are currently no overdue receivables. All client accounts are up to date.
+            🎉 Great news! There are currently no overdue receivables. All accounts are up to date.
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -233,7 +233,7 @@ export const DebtorsManager: React.FC<DebtorsManagerProps> = ({
             <thead className="bg-slate-100 text-slate-600 border-b border-slate-200 uppercase tracking-wider text-[10px]">
               <tr>
                 <th className="p-3">Ref ID</th>
-                <th className="p-3">Client Entity</th>
+                <th className="p-3">Entity Name</th>
                 <th className="p-3">Invoice Ref</th>
                 <th className="p-3">Invoice Date</th>
                 <th className="p-3">Due Date</th>
@@ -332,7 +332,7 @@ export const DebtorsManager: React.FC<DebtorsManagerProps> = ({
 
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs space-y-1">
               <div className="flex justify-between">
-                <span className="text-slate-500">Client:</span>
+                <span className="text-slate-500">Entity:</span>
                 <span className="font-bold text-slate-900">{selectedItemForPayment.clientEntity}</span>
               </div>
               <div className="flex justify-between">
@@ -409,7 +409,7 @@ export const DebtorsManager: React.FC<DebtorsManagerProps> = ({
 
             <form onSubmit={handleAddSubmit} className="space-y-3 text-xs">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Client Entity Name *</label>
+                <label className="block font-semibold text-slate-700 mb-1">Entity Name *</label>
                 <input
                   type="text"
                   required

@@ -95,8 +95,10 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
       'particulars',
       'company',
       'name',
+      'entity',
+      'entity name',
     ]);
-    return val || 'Client';
+    return val || 'Debtor Entity';
   };
 
   const extractCreditorName = (r: any): string => {
@@ -116,8 +118,10 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
       'particulars',
       'company',
       'name',
+      'entity',
+      'entity name',
     ]);
-    return val || 'Vendor';
+    return val || 'Creditor Entity';
   };
 
   // Helper to parse CSV rows

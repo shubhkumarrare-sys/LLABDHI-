@@ -100,7 +100,7 @@ export const CreditorsManager: React.FC<CreditorsManagerProps> = ({
             Creditors & Accounts Payable (AP) Management
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Track vendor payments, raw material supplies (Tata Steel), machine maintenance (Trumpf), MSEDCL electricity bills, and logistics liabilities.
+            Track supplier payments, raw material supplies (Tata Steel), machine maintenance (Trumpf), MSEDCL electricity bills, and logistics liabilities.
           </p>
         </div>
 
@@ -126,7 +126,7 @@ export const CreditorsManager: React.FC<CreditorsManagerProps> = ({
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Search vendor or invoice..."
+              placeholder="Search entity or invoice..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -155,7 +155,7 @@ export const CreditorsManager: React.FC<CreditorsManagerProps> = ({
             <thead className="bg-slate-100 text-slate-600 border-b border-slate-200 uppercase tracking-wider text-[10px]">
               <tr>
                 <th className="p-3">Ref ID</th>
-                <th className="p-3">Vendor / Creditor Entity</th>
+                <th className="p-3">Entity Name</th>
                 <th className="p-3">Category</th>
                 <th className="p-3">Invoice Ref</th>
                 <th className="p-3">Due Date</th>
@@ -246,7 +246,7 @@ export const CreditorsManager: React.FC<CreditorsManagerProps> = ({
           <div className="bg-white rounded-xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900">
-                Record Vendor Payout & Challan/UTR
+                Record Payout & Challan/UTR
               </h3>
               <button
                 onClick={() => setSelectedCreditor(null)}
@@ -258,7 +258,7 @@ export const CreditorsManager: React.FC<CreditorsManagerProps> = ({
 
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs space-y-1">
               <div className="flex justify-between">
-                <span className="text-slate-500">Vendor:</span>
+                <span className="text-slate-500">Entity:</span>
                 <span className="font-bold text-slate-900">{selectedCreditor.vendorEntity}</span>
               </div>
               <div className="flex justify-between">
@@ -311,7 +311,7 @@ export const CreditorsManager: React.FC<CreditorsManagerProps> = ({
                   type="submit"
                   className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer shadow"
                 >
-                  Confirm Vendor Payout
+                  Confirm Payout
                 </button>
               </div>
             </form>
@@ -324,7 +324,7 @@ export const CreditorsManager: React.FC<CreditorsManagerProps> = ({
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-900">Add Creditor / Vendor Invoice</h3>
+              <h3 className="text-base font-bold text-slate-900">Add Creditor Invoice</h3>
               <button
                 onClick={() => setIsAddOpen(false)}
                 className="text-slate-400 hover:text-slate-600 cursor-pointer"
@@ -335,7 +335,7 @@ export const CreditorsManager: React.FC<CreditorsManagerProps> = ({
 
             <form onSubmit={handleAddSubmit} className="space-y-3 text-xs">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Vendor Entity Name *</label>
+                <label className="block font-semibold text-slate-700 mb-1">Entity Name *</label>
                 <input
                   type="text"
                   required
@@ -373,7 +373,7 @@ export const CreditorsManager: React.FC<CreditorsManagerProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Vendor Invoice Ref</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Invoice Ref</label>
                   <input
                     type="text"
                     placeholder="e.g. TSDPL/IN/88341"
