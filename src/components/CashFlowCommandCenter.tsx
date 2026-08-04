@@ -715,7 +715,7 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
             {/* Creditor Payments */}
             <div>
               <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
-                Accounts Payable (Vendors)
+                Accounts Payable (Creditors)
               </span>
               {activeDetails.outflows.creditors.length === 0 ? (
                 <p className="text-xs text-slate-400 italic">No creditor payouts due in {activeDetails.daysWindow} days.</p>

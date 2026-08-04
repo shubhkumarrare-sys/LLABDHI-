@@ -79,7 +79,7 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
   };
 
   const extractDebtorName = (r: any): string => {
-    const val = getFieldVal(r, [
+    let val = getFieldVal(r, [
       'clientEntity',
       'client entity',
       'client_entity',
@@ -98,11 +98,14 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
       'entity',
       'entity name',
     ]);
+    if (val) {
+      val = val.replace(/^(client|vendor|supplier|creditor|debtor)\s*[:|-]?\s*/i, '').trim();
+    }
     return val || 'Debtor Entity';
   };
 
   const extractCreditorName = (r: any): string => {
-    const val = getFieldVal(r, [
+    let val = getFieldVal(r, [
       'vendorEntity',
       'vendor entity',
       'vendor_entity',
@@ -121,6 +124,9 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
       'entity',
       'entity name',
     ]);
+    if (val) {
+      val = val.replace(/^(client|vendor|supplier|creditor|debtor)\s*[:|-]?\s*/i, '').trim();
+    }
     return val || 'Creditor Entity';
   };
 
