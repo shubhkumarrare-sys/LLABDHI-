@@ -45,7 +45,7 @@ export default function App() {
 
   // Master Operational State (LLABDHI OPS NODE) with localStorage persistence
   const [debtors, setDebtors] = useState<DebtorItem[]>(() => {
-    const saved = localStorage.getItem('llabdhi_debtors');
+    const saved = localStorage.getItem('llabdhi_debtors_v2');
     return saved ? JSON.parse(saved) : INITIAL_DEBTORS;
   });
   const [creditors, setCreditors] = useState<CreditorItem[]>(() => {
@@ -105,7 +105,7 @@ export default function App() {
   }) => {
     if (newData.debtors) {
       setDebtors(newData.debtors);
-      localStorage.setItem('llabdhi_debtors', JSON.stringify(newData.debtors));
+      localStorage.setItem('llabdhi_debtors_v2', JSON.stringify(newData.debtors));
     }
     if (newData.creditors) {
       setCreditors(newData.creditors);
@@ -142,7 +142,7 @@ export default function App() {
   const handleUpdateDebtor = (updated: DebtorItem) => {
     setDebtors((prev) => {
       const next = prev.map((d) => (d.id === updated.id ? updated : d));
-      localStorage.setItem('llabdhi_debtors', JSON.stringify(next));
+      localStorage.setItem('llabdhi_debtors_v2', JSON.stringify(next));
       return next;
     });
   };
@@ -150,7 +150,7 @@ export default function App() {
   const handleAddDebtor = (newItem: DebtorItem) => {
     setDebtors((prev) => {
       const next = [newItem, ...prev];
-      localStorage.setItem('llabdhi_debtors', JSON.stringify(next));
+      localStorage.setItem('llabdhi_debtors_v2', JSON.stringify(next));
       return next;
     });
   };
