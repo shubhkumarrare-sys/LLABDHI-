@@ -53,7 +53,7 @@ export default function App() {
     return saved ? JSON.parse(saved) : INITIAL_CREDITORS;
   });
   const [emis, setEmis] = useState<EmiItem[]>(() => {
-    const saved = localStorage.getItem('llabdhi_emis');
+    const saved = localStorage.getItem('llabdhi_emis_v2');
     return saved ? JSON.parse(saved) : INITIAL_EMIS;
   });
   const [compliance, setCompliance] = useState<ComplianceItem[]>(() => {
@@ -113,7 +113,7 @@ export default function App() {
     }
     if (newData.emis) {
       setEmis(newData.emis);
-      localStorage.setItem('llabdhi_emis', JSON.stringify(newData.emis));
+      localStorage.setItem('llabdhi_emis_v2', JSON.stringify(newData.emis));
     }
     if (newData.compliance) {
       setCompliance(newData.compliance);
@@ -176,7 +176,7 @@ export default function App() {
   const handleUpdateEmi = (updated: EmiItem) => {
     setEmis((prev) => {
       const next = prev.map((e) => (e.id === updated.id ? updated : e));
-      localStorage.setItem('llabdhi_emis', JSON.stringify(next));
+      localStorage.setItem('llabdhi_emis_v2', JSON.stringify(next));
       return next;
     });
   };
@@ -184,7 +184,7 @@ export default function App() {
   const handleAddEmi = (newItem: EmiItem) => {
     setEmis((prev) => {
       const next = [newItem, ...prev];
-      localStorage.setItem('llabdhi_emis', JSON.stringify(next));
+      localStorage.setItem('llabdhi_emis_v2', JSON.stringify(next));
       return next;
     });
   };
@@ -192,7 +192,7 @@ export default function App() {
   const handleDeleteEmi = (id: string) => {
     setEmis((prev) => {
       const next = prev.filter((e) => e.id !== id);
-      localStorage.setItem('llabdhi_emis', JSON.stringify(next));
+      localStorage.setItem('llabdhi_emis_v2', JSON.stringify(next));
       return next;
     });
   };
