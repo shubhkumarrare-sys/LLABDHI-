@@ -57,10 +57,15 @@ export interface ComplianceItem {
   responsibility?: string;
 }
 
+export interface LocationGst {
+  payable: number;
+  receivable: number;
+}
+
 export interface GstPayableState {
-  mumbai: number;
-  chennai: number;
-  goa: number;
+  mumbai: LocationGst;
+  chennai: LocationGst;
+  goa: LocationGst;
   lastUpdated?: string;
 }
 

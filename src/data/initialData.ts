@@ -398,8 +398,8 @@ export const INITIAL_EMAIL_LOGS: EmailLogItem[] = [
 ];
 
 export const INITIAL_GST_PAYABLE: GstPayableState = {
-  mumbai: 425000,
-  chennai: 280000,
-  goa: 145000,
+  mumbai: { payable: 425000, receivable: 150000 },
+  chennai: { payable: 280000, receivable: 95000 },
+  goa: { payable: 145000, receivable: 40000 },
   lastUpdated: new Date().toISOString().split('T')[0],
 };

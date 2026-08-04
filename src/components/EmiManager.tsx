@@ -3,15 +3,16 @@ import { EmiItem } from '../types';
 import { formatINR, calculateDaysDiff } from '../utils/calculations';
 import {
   Car,
-  ShieldCheck,
   Calendar,
   CheckCircle2,
   Clock,
   X,
   CreditCard,
-  Building,
   Plus,
   Trash2,
+  ChevronRight,
+  FileText,
+  Building,
 } from 'lucide-react';
 
 interface EmiManagerProps {
@@ -21,15 +22,29 @@ interface EmiManagerProps {
   onDeleteEmi?: (id: string) => void;
 }
 
+interface MonthlyScheduleRow {
+  monthIndex: number;
+  monthName: string; // e.g. "Aug 2026"
+  dueDate: string;   // YYYY-MM-DD
+  amount: number;
+  status: 'Paid' | 'Upcoming' | 'Overdue';
+  paymentRef?: string;
+  paymentDate?: string;
+}
+
 export const EmiManager: React.FC<EmiManagerProps> = ({
   emis,
   onUpdateEmi,
   onAddEmi,
   onDeleteEmi,
 }) => {
-  const [selectedEmi, setSelectedEmi] = useState<EmiItem | null>(null);
+  // Modal for showing full Month-Wise Schedule for a selected loan
+  const [activeScheduleEmi, setActiveScheduleEmi] = useState<EmiItem | null>(null);
+
+  // Payment Recording State inside Schedule Modal
+  const [recordingMonth, setRecordingMonth] = useState<MonthlyScheduleRow | null>(null);
   const [lastPaymentRef, setLastPaymentRef] = useState('');
-  const [lastPaymentDate, setLastPaymentDate] = useState('2026-07-30');
+  const [lastPaymentDate, setLastPaymentDate] = useState('2026-08-05');
 
   // Add EMI state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -74,26 +89,78 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
 
   const handleRecordPaymentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedEmi) return;
+    if (!activeScheduleEmi || !recordingMonth) return;
 
-    // Advance next due date by 1 month
-    const currentDate = new Date(selectedEmi.nextDueDate);
+    // Calculate updated due date (advance by 1 month)
+    const currentDate = new Date(recordingMonth.dueDate);
     currentDate.setMonth(currentDate.getMonth() + 1);
     const newDueDateStr = currentDate.toISOString().substring(0, 10);
 
-    const newRemainingBalance = Math.max(0, selectedEmi.remainingBalance - selectedEmi.monthlyEmi);
+    const updatedBalance = Math.max(0, activeScheduleEmi.remainingBalance - activeScheduleEmi.monthlyEmi);
 
-    onUpdateEmi({
-      ...selectedEmi,
-      remainingBalance: newRemainingBalance,
+    const updatedItem: EmiItem = {
+      ...activeScheduleEmi,
+      remainingBalance: updatedBalance,
       nextDueDate: newDueDateStr,
       status: 'Paid',
-      lastPaymentDate: lastPaymentDate || new Date().toISOString().substring(0, 10),
+      lastPaymentDate: lastPaymentDate || recordingMonth.dueDate,
       lastPaymentRef: lastPaymentRef || `ACH/ICICI/INP-${Math.floor(1000 + Math.random() * 9000)}`,
-    });
+    };
 
-    setSelectedEmi(null);
+    onUpdateEmi(updatedItem);
+    setActiveScheduleEmi(updatedItem);
+    setRecordingMonth(null);
     setLastPaymentRef('');
+  };
+
+  // Helper function to generate 12-month schedule for a loan
+  const generate12MonthSchedule = (item: EmiItem): MonthlyScheduleRow[] => {
+    const rows: MonthlyScheduleRow[] = [];
+    const baseDueDate = new Date(item.nextDueDate || '2026-08-05');
+    const day = item.dueDayOfMonth || baseDueDate.getDate() || 5;
+
+    // Past month (Jul 2026)
+    if (item.lastPaymentDate || item.lastPaymentRef) {
+      const pastDate = new Date(baseDueDate);
+      pastDate.setMonth(pastDate.getMonth() - 1);
+      pastDate.setDate(day);
+      const mName = pastDate.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+      rows.push({
+        monthIndex: 1,
+        monthName: mName,
+        dueDate: pastDate.toISOString().substring(0, 10),
+        amount: item.monthlyEmi,
+        status: 'Paid',
+        paymentRef: item.lastPaymentRef || 'ACH/ICICI/DIRECT-DEBIT',
+        paymentDate: item.lastPaymentDate || pastDate.toISOString().substring(0, 10),
+      });
+    }
+
+    const startIdx = rows.length > 0 ? 2 : 1;
+
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(baseDueDate);
+      d.setMonth(d.getMonth() + i);
+      d.setDate(day);
+
+      const mName = d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+      const dateStr = d.toISOString().substring(0, 10);
+
+      const isFirst = i === 0;
+      const isPaid = isFirst && item.status === 'Paid';
+
+      rows.push({
+        monthIndex: startIdx + i,
+        monthName: mName,
+        dueDate: dateStr,
+        amount: item.monthlyEmi,
+        status: isPaid ? 'Paid' : 'Upcoming',
+        paymentRef: isPaid ? (item.lastPaymentRef || 'ACH/BANK-REF') : undefined,
+        paymentDate: isPaid ? (item.lastPaymentDate || dateStr) : undefined,
+      });
+    }
+
+    return rows;
   };
 
   const totalLoanValue = emis.reduce((sum, e) => sum + e.totalLoanValue, 0);
@@ -108,11 +175,11 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
           <div className="flex items-center space-x-2">
             <Car className="w-5 h-5 text-indigo-600" />
             <h1 className="text-xl font-bold text-slate-900">
-              Vehicle & Loan Repayment Schedules (EMIs)
+              Vehicle & Loan Repayment Facilities (EMIs)
             </h1>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Tracking loan repayment schedules, EMI commitments, and bank amortization for all vehicle & equipment loans.
+            Main EMI loan list. Click on any loan to view its month-wise repayment schedule and payment records.
           </p>
         </div>
 
@@ -127,7 +194,7 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
 
           <div className="grid grid-cols-3 gap-3 text-right bg-slate-50 p-3 rounded-lg border border-slate-200">
             <div>
-              <span className="text-[10px] text-slate-400 block font-semibold uppercase">Total Loan Value</span>
+              <span className="text-[10px] text-slate-400 block font-semibold uppercase">Total Sanctioned</span>
               <span className="text-xs font-bold text-slate-800">{formatINR(totalLoanValue)}</span>
             </div>
             <div>
@@ -142,218 +209,275 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
         </div>
       </div>
 
-      {/* LOAN CARDS GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* MAIN EMI LOANS LIST - CLEAN & CONCISE */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {emis.map((item) => {
           const daysToDue = calculateDaysDiff(item.nextDueDate);
-          const isMg = item.loanName.includes('MG Cyberster');
+          const isPaid = item.status === 'Paid';
 
           return (
             <div
               key={item.id}
-              className={`bg-white rounded-xl border shadow-sm overflow-hidden flex flex-col justify-between ${
-                isMg ? 'border-indigo-200 hover:border-indigo-300' : 'border-blue-200 hover:border-blue-300'
-              }`}
+              onClick={() => setActiveScheduleEmi(item)}
+              className="bg-white rounded-2xl border border-slate-200 hover:border-indigo-400 hover:shadow-md transition cursor-pointer flex flex-col justify-between overflow-hidden group"
             >
-              <div>
-                {/* Header Badge */}
-                <div
-                  className={`p-5 ${
-                    isMg
-                      ? 'bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white'
-                      : 'bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="px-2.5 py-0.5 rounded bg-white/10 text-xs font-semibold text-slate-200 backdrop-blur-sm border border-white/10">
+              <div className="p-5 space-y-4">
+                {/* Header Name & Lender */}
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-[10px] font-bold text-slate-600 border border-slate-200">
                       {item.lenderBank}
                     </span>
-                    <span
-                      className={`px-2.5 py-0.5 rounded text-[11px] font-bold ${
-                        item.status === 'Paid'
-                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                          : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                      }`}
-                    >
-                      {item.status === 'Paid' ? 'Paid for Month' : `Due in ${daysToDue} day(s)`}
-                    </span>
+                    <h2 className="text-base font-extrabold text-slate-900 mt-2 group-hover:text-indigo-600 transition">
+                      {item.loanName}
+                    </h2>
+                    <p className="text-xs text-slate-500 font-medium">{item.vehicleModel}</p>
                   </div>
-
-                  <h2 className="text-lg font-extrabold mt-3 text-white">{item.loanName}</h2>
-                  <p className="text-xs text-slate-300 font-mono mt-0.5">{item.vehicleModel}</p>
+                  {onDeleteEmi && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteEmi(item.id);
+                      }}
+                      title="Delete Loan Facility"
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
 
-                {/* Content Details */}
-                <div className="p-5 space-y-4 text-xs">
-                  <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                    <div>
-                      <span className="text-slate-400 text-[10px] uppercase font-semibold block">
-                        Monthly EMI Amount
-                      </span>
-                      <span className="text-base font-extrabold text-rose-600">
-                        {formatINR(item.monthlyEmi)}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-slate-400 text-[10px] uppercase font-semibold block">
-                        Next Due Date
-                      </span>
-                      <span className="text-sm font-bold text-slate-800">{item.nextDueDate}</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-slate-500">Total Sanctioned Loan:</span>
-                      <span className="font-semibold text-slate-800">
-                        {formatINR(item.totalLoanValue)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-slate-500">Remaining Principal Balance:</span>
-                      <span className="font-bold text-amber-700">
-                        {formatINR(item.remainingBalance)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-slate-500">Loan Account No:</span>
-                      <span className="font-mono text-slate-700">{item.accountNo}</span>
-                    </div>
-                  </div>
-
-                  {/* Principal Paid Progress Bar */}
+                {/* Main Monthly EMI Amount */}
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
                   <div>
-                    <div className="flex justify-between text-[11px] text-slate-500 mb-1">
-                      <span>Loan Repayment Progress</span>
-                      <span>
-                        {Math.round(
-                          ((item.totalLoanValue - item.remainingBalance) / item.totalLoanValue) * 100
-                        )}
-                        % Paid
-                      </span>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
-                      <div
-                        className="h-full bg-emerald-500 rounded-full transition-all"
-                        style={{
-                          width: `${
-                            ((item.totalLoanValue - item.remainingBalance) / item.totalLoanValue) *
-                            100
-                          }%`,
-                        }}
-                      ></div>
-                    </div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Monthly EMI</span>
+                    <span className="text-lg font-black text-rose-600">{formatINR(item.monthlyEmi)}</span>
                   </div>
+                  <div className="text-right">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Next Due Date</span>
+                    <span className="text-xs font-extrabold text-slate-800">{item.nextDueDate}</span>
+                  </div>
+                </div>
 
-                  {/* Recent Payment Timestamps Recorded */}
-                  <div className="bg-emerald-50/70 p-3 rounded-lg border border-emerald-200 text-xs">
-                    <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block mb-1">
-                      Last Recorded Payment Timestamp & Reference
-                    </span>
-                    <div className="flex items-center justify-between font-mono text-[11px] text-emerald-900 font-semibold">
-                      <span>{item.lastPaymentRef || 'ACH/BANK-DIRECT-DEBIT'}</span>
-                      <span className="text-[10px] text-emerald-700">{item.lastPaymentDate || '2026-07-01'}</span>
-                    </div>
+                {/* Progress bar summary */}
+                <div>
+                  <div className="flex justify-between text-[10px] text-slate-500 font-semibold mb-1">
+                    <span>Remaining Principal</span>
+                    <span className="text-amber-700 font-bold">{formatINR(item.remainingBalance)}</span>
+                  </div>
+                  <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-500 rounded-full"
+                      style={{
+                        width: `${Math.round(
+                          ((item.totalLoanValue - item.remainingBalance) / item.totalLoanValue) * 100
+                        )}%`,
+                      }}
+                    />
                   </div>
                 </div>
               </div>
 
-              {/* Action Footer */}
-              <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center space-x-2">
-                <button
-                  onClick={() => setSelectedEmi(item)}
-                  className="flex-1 py-2 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs flex items-center justify-center space-x-1.5 transition cursor-pointer shadow"
-                >
-                  <CreditCard className="w-3.5 h-3.5" />
-                  <span>Update EMI Payment & Reference</span>
-                </button>
-                {onDeleteEmi && (
-                  <button
-                    onClick={() => onDeleteEmi(item.id)}
-                    title="Delete Loan Facility"
-                    className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 transition cursor-pointer"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
+              {/* Click action footer */}
+              <div className="px-5 py-3 bg-gradient-to-r from-slate-50 to-indigo-50/50 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-indigo-700 group-hover:bg-indigo-600 group-hover:text-white transition">
+                <span className="flex items-center space-x-1.5">
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>Click to view Month-Wise Schedule</span>
+                </span>
+                <ChevronRight className="w-4 h-4 transform group-hover:translate-x-1 transition" />
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* UPDATE EMI PAYMENT MODAL */}
-      {selectedEmi && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-900">
-                Update EMI Payment & Reference
-              </h3>
+      {/* MONTH-WISE SCHEDULE MODAL */}
+      {activeScheduleEmi && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-3xl w-full p-6 space-y-5 my-8 max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-3 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100">
+                  <Car className="w-6 h-6" />
+                </div>
+                <div>
+                  <span className="px-2.5 py-0.5 rounded-md bg-indigo-100 text-indigo-800 text-[10px] font-extrabold uppercase">
+                    {activeScheduleEmi.lenderBank}
+                  </span>
+                  <h2 className="text-lg font-extrabold text-slate-900 mt-1">
+                    {activeScheduleEmi.loanName}
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    {activeScheduleEmi.vehicleModel} • Account: <span className="font-mono text-slate-700 font-bold">{activeScheduleEmi.accountNo}</span>
+                  </p>
+                </div>
+              </div>
+
               <button
-                onClick={() => setSelectedEmi(null)}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                onClick={() => {
+                  setActiveScheduleEmi(null);
+                  setRecordingMonth(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs space-y-1">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Loan Facility:</span>
-                <span className="font-bold text-slate-900">{selectedEmi.loanName}</span>
+            {/* Quick Loan KPI Bar */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs">
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase block">Sanctioned Loan</span>
+                <span className="text-sm font-extrabold text-slate-800">{formatINR(activeScheduleEmi.totalLoanValue)}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Monthly EMI:</span>
-                <span className="font-extrabold text-rose-600">{formatINR(selectedEmi.monthlyEmi)}</span>
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase block">Remaining Principal</span>
+                <span className="text-sm font-extrabold text-amber-700">{formatINR(activeScheduleEmi.remainingBalance)}</span>
+              </div>
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase block">Monthly EMI</span>
+                <span className="text-sm font-extrabold text-rose-600">{formatINR(activeScheduleEmi.monthlyEmi)}</span>
+              </div>
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase block">Next Installment</span>
+                <span className="text-sm font-extrabold text-slate-800">{activeScheduleEmi.nextDueDate}</span>
               </div>
             </div>
 
-            <form onSubmit={handleRecordPaymentSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  ACH / Bank Reference / UTR Number *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. ACH/ICICI/AUG01/8832"
-                  value={lastPaymentRef}
-                  onChange={(e) => setLastPaymentRef(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
+            {/* RECORD PAYMENT SUB-FORM IF CLICKED ON A MONTH */}
+            {recordingMonth && (
+              <div className="p-4 rounded-xl bg-amber-50/80 border border-amber-200 space-y-3">
+                <div className="flex items-center justify-between border-b border-amber-200/60 pb-2">
+                  <div className="flex items-center space-x-2">
+                    <CreditCard className="w-4 h-4 text-amber-700" />
+                    <span className="font-bold text-slate-900 text-xs">
+                      Record Payment for {recordingMonth.monthName} ({formatINR(recordingMonth.amount)})
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setRecordingMonth(null)}
+                    className="text-amber-800 hover:text-amber-950 text-xs font-bold"
+                  >
+                    Cancel
+                  </button>
+                </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Payment Credit Date / Timestamp *
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={lastPaymentDate}
-                  onChange={(e) => setLastPaymentDate(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
+                <form onSubmit={handleRecordPaymentSubmit} className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Bank Ref / UTR No. *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. ACH/ICICI/AUG01/8832"
+                      value={lastPaymentRef}
+                      onChange={(e) => setLastPaymentRef(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white text-xs font-semibold"
+                    />
+                  </div>
 
-              <div className="flex items-center justify-end space-x-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedEmi(null)}
-                  className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 text-xs font-medium cursor-pointer hover:bg-slate-100"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold cursor-pointer shadow"
-                >
-                  Confirm EMI Paid & Advance Schedule
-                </button>
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Payment Date *
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={lastPaymentDate}
+                      onChange={(e) => setLastPaymentDate(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white text-xs font-semibold"
+                    />
+                  </div>
+
+                  <div className="flex items-end">
+                    <button
+                      type="submit"
+                      className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow transition cursor-pointer text-xs flex items-center justify-center space-x-1"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Confirm & Record</span>
+                    </button>
+                  </div>
+                </form>
               </div>
-            </form>
+            )}
+
+            {/* MONTH-WISE REPAYMENT SCHEDULE TABLE */}
+            <div className="overflow-y-auto flex-1 rounded-xl border border-slate-200">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-100/80 text-slate-600 font-extrabold uppercase text-[10px] tracking-wider sticky top-0 border-b border-slate-200">
+                    <th className="p-3">Inst #</th>
+                    <th className="p-3">Month</th>
+                    <th className="p-3">Due Date</th>
+                    <th className="p-3 text-right">EMI Amount</th>
+                    <th className="p-3 text-center">Status</th>
+                    <th className="p-3 text-right">Payment Ref / Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {generate12MonthSchedule(activeScheduleEmi).map((row) => (
+                    <tr
+                      key={row.monthIndex + row.dueDate}
+                      className={row.status === 'Paid' ? 'bg-emerald-50/30' : 'hover:bg-slate-50'}
+                    >
+                      <td className="p-3 font-mono font-bold text-slate-500">#{row.monthIndex}</td>
+                      <td className="p-3 font-extrabold text-slate-800">{row.monthName}</td>
+                      <td className="p-3 text-slate-600 font-mono">{row.dueDate}</td>
+                      <td className="p-3 text-right font-extrabold text-rose-600">
+                        {formatINR(row.amount)}
+                      </td>
+                      <td className="p-3 text-center">
+                        {row.status === 'Paid' ? (
+                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold border border-emerald-200 inline-flex items-center space-x-1">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            <span>Paid</span>
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-extrabold border border-amber-200 inline-flex items-center space-x-1">
+                            <Clock className="w-3 h-3 text-amber-600" />
+                            <span>Upcoming</span>
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-3 text-right font-mono text-[11px]">
+                        {row.status === 'Paid' ? (
+                          <span className="text-emerald-800 font-semibold bg-emerald-100/60 px-2 py-1 rounded">
+                            {row.paymentRef || 'ACH/DIRECT-DEBIT'}
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setRecordingMonth(row);
+                              setLastPaymentDate(row.dueDate);
+                              setLastPaymentRef(`ACH/ICICI/INP-${Math.floor(1000 + Math.random() * 9000)}`);
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[11px] transition cursor-pointer shadow-xs"
+                          >
+                            Record Payment
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end pt-2 border-t border-slate-100">
+              <button
+                onClick={() => {
+                  setActiveScheduleEmi(null);
+                  setRecordingMonth(null);
+                }}
+                className="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs cursor-pointer shadow"
+              >
+                Close Schedule
+              </button>
+            </div>
           </div>
         </div>
       )}

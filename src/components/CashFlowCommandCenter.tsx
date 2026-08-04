@@ -59,25 +59,49 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
 }) => {
   const [selectedHorizon, setSelectedHorizon] = useState<CashFlowHorizon>('5-Day');
 
-  // Today's GST Payable State & Editing
+  // Today's GST Payable & Receivable State & Editing
   const currentGst: GstPayableState = gstPayable || {
-    mumbai: 425000,
-    chennai: 280000,
-    goa: 145000,
+    mumbai: { payable: 425000, receivable: 150000 },
+    chennai: { payable: 280000, receivable: 95000 },
+    goa: { payable: 145000, receivable: 40000 },
     lastUpdated: new Date().toISOString().split('T')[0],
   };
 
+  const getLocGst = (loc: any) => {
+    if (typeof loc === 'number') return { payable: loc, receivable: 0 };
+    return { payable: loc?.payable || 0, receivable: loc?.receivable || 0 };
+  };
+
+  const mumbaiGst = getLocGst(currentGst.mumbai);
+  const chennaiGst = getLocGst(currentGst.chennai);
+  const goaGst = getLocGst(currentGst.goa);
+
   const [isEditingGst, setIsEditingGst] = useState(false);
-  const [editMumbai, setEditMumbai] = useState<number>(currentGst.mumbai);
-  const [editChennai, setEditChennai] = useState<number>(currentGst.chennai);
-  const [editGoa, setEditGoa] = useState<number>(currentGst.goa);
+  const [editMumbaiPayable, setEditMumbaiPayable] = useState<number>(mumbaiGst.payable);
+  const [editMumbaiReceivable, setEditMumbaiReceivable] = useState<number>(mumbaiGst.receivable);
+
+  const [editChennaiPayable, setEditChennaiPayable] = useState<number>(chennaiGst.payable);
+  const [editChennaiReceivable, setEditChennaiReceivable] = useState<number>(chennaiGst.receivable);
+
+  const [editGoaPayable, setEditGoaPayable] = useState<number>(goaGst.payable);
+  const [editGoaReceivable, setEditGoaReceivable] = useState<number>(goaGst.receivable);
+
+  const handleOpenEditGst = () => {
+    setEditMumbaiPayable(mumbaiGst.payable);
+    setEditMumbaiReceivable(mumbaiGst.receivable);
+    setEditChennaiPayable(chennaiGst.payable);
+    setEditChennaiReceivable(chennaiGst.receivable);
+    setEditGoaPayable(goaGst.payable);
+    setEditGoaReceivable(goaGst.receivable);
+    setIsEditingGst(true);
+  };
 
   const handleSaveGst = (e: React.FormEvent) => {
     e.preventDefault();
     const updated: GstPayableState = {
-      mumbai: Number(editMumbai) || 0,
-      chennai: Number(editChennai) || 0,
-      goa: Number(editGoa) || 0,
+      mumbai: { payable: Number(editMumbaiPayable) || 0, receivable: Number(editMumbaiReceivable) || 0 },
+      chennai: { payable: Number(editChennaiPayable) || 0, receivable: Number(editChennaiReceivable) || 0 },
+      goa: { payable: Number(editGoaPayable) || 0, receivable: Number(editGoaReceivable) || 0 },
       lastUpdated: new Date().toISOString().split('T')[0],
     };
     if (onUpdateGstPayable) {
@@ -85,6 +109,9 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
     }
     setIsEditingGst(false);
   };
+
+  const totalPayable = mumbaiGst.payable + chennaiGst.payable + goaGst.payable;
+  const totalReceivable = mumbaiGst.receivable + chennaiGst.receivable + goaGst.receivable;
 
   const todayFormattedDate = new Date().toLocaleDateString('en-IN', {
     weekday: 'short',
@@ -269,7 +296,7 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
         </div>
       </div>
 
-      {/* TODAY'S GST PAYABLE SECTION (BELOW 5-DAY, 15-DAY, AND 30-DAY HORIZONS) */}
+      {/* TODAY'S GST PAYABLE & RECEIVABLES SECTION (BELOW 5-DAY, 15-DAY, AND 30-DAY HORIZONS) */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3.5">
           <div className="flex items-center space-x-3">
@@ -279,7 +306,7 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
             <div>
               <div className="flex items-center space-x-2">
                 <h2 className="font-extrabold text-slate-900 text-base tracking-tight uppercase">
-                  Today's GST Payable
+                  Today's GST Summary
                 </h2>
                 <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[11px] font-bold border border-amber-200">
                   {todayFormattedDate}
@@ -291,57 +318,72 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center space-x-3">
-            <div className="text-right hidden sm:block">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                Total Combined GST Today
-              </span>
-              <span className="text-lg font-black text-amber-600">
-                {formatINR(currentGst.mumbai + currentGst.chennai + currentGst.goa)}
-              </span>
+          <div className="flex items-center space-x-4">
+            <div className="hidden sm:flex items-center space-x-4 text-right">
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Total GST Payable
+                </span>
+                <span className="text-base font-black text-rose-600">
+                  {formatINR(totalPayable)}
+                </span>
+              </div>
+              <div className="h-7 w-px bg-slate-200" />
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Total GST Receivables
+                </span>
+                <span className="text-base font-black text-emerald-600">
+                  {formatINR(totalReceivable)}
+                </span>
+              </div>
             </div>
 
             <button
-              onClick={() => {
-                setEditMumbai(currentGst.mumbai);
-                setEditChennai(currentGst.chennai);
-                setEditGoa(currentGst.goa);
-                setIsEditingGst(true);
-              }}
+              onClick={handleOpenEditGst}
               className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center space-x-2 transition cursor-pointer shadow-sm"
             >
               <Edit3 className="w-3.5 h-3.5 text-amber-400" />
-              <span>Update Today's Amounts</span>
+              <span>Update GST Daily Amounts</span>
             </button>
           </div>
         </div>
 
         {/* 3 DISTINCT LOCATION BOXES */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* BOX 1: GST PAYABLE - MUMBAI */}
-          <div className="p-4 rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-amber-50/30 hover:border-amber-300 transition shadow-xs relative overflow-hidden group">
-            <div className="flex items-center justify-between">
+          {/* BOX 1: MUMBAI */}
+          <div className="p-4 rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-indigo-50/20 hover:border-indigo-200 transition shadow-xs relative overflow-hidden group space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
               <div className="flex items-center space-x-2">
                 <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100">
                   <Building2 className="w-4 h-4" />
                 </div>
                 <div>
                   <h3 className="font-extrabold text-slate-800 text-xs uppercase tracking-wider">
-                    GST Payable - Mumbai
+                    GST - Mumbai
                   </h3>
                   <span className="text-[10px] text-slate-500 font-mono">GSTIN: 27AAAAL1234F1Z0 (MH)</span>
                 </div>
               </div>
             </div>
 
-            <div className="mt-3.5 pt-2 border-t border-slate-100 flex items-baseline justify-between">
-              <span className="text-xs text-slate-500 font-medium">Daily Amount</span>
-              <span className="text-xl font-extrabold text-slate-900 group-hover:text-amber-600 transition">
-                {formatINR(currentGst.mumbai)}
-              </span>
+            <div className="space-y-2">
+              <div className="p-2.5 rounded-lg bg-rose-50/60 border border-rose-100 flex items-center justify-between">
+                <span className="text-xs font-bold text-rose-700 uppercase tracking-wide">GST Payable</span>
+                <span className="text-lg font-black text-rose-600">
+                  {formatINR(mumbaiGst.payable)}
+                </span>
+              </div>
+
+              <div className="p-2.5 rounded-lg bg-emerald-50/60 border border-emerald-100 flex items-center justify-between">
+                <span className="text-xs font-bold text-emerald-700 uppercase tracking-wide">GST Receivables</span>
+                <span className="text-lg font-black text-emerald-600">
+                  {formatINR(mumbaiGst.receivable)}
+                </span>
+              </div>
             </div>
 
-            <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
+            <div className="pt-1 flex items-center justify-between text-[11px] text-slate-500">
               <span className="flex items-center space-x-1 text-slate-400">
                 <MapPin className="w-3 h-3 text-indigo-400" />
                 <span>Maharashtra Unit</span>
@@ -350,30 +392,39 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
             </div>
           </div>
 
-          {/* BOX 2: GST PAYABLE - CHENNAI */}
-          <div className="p-4 rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-blue-50/30 hover:border-blue-300 transition shadow-xs relative overflow-hidden group">
-            <div className="flex items-center justify-between">
+          {/* BOX 2: CHENNAI */}
+          <div className="p-4 rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-blue-50/20 hover:border-blue-200 transition shadow-xs relative overflow-hidden group space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
               <div className="flex items-center space-x-2">
                 <div className="p-2 rounded-lg bg-blue-50 text-blue-600 border border-blue-100">
                   <Factory className="w-4 h-4" />
                 </div>
                 <div>
                   <h3 className="font-extrabold text-slate-800 text-xs uppercase tracking-wider">
-                    GST Payable - Chennai
+                    GST - Chennai
                   </h3>
                   <span className="text-[10px] text-slate-500 font-mono">GSTIN: 33AAAAL1234F1Z5 (TN)</span>
                 </div>
               </div>
             </div>
 
-            <div className="mt-3.5 pt-2 border-t border-slate-100 flex items-baseline justify-between">
-              <span className="text-xs text-slate-500 font-medium">Daily Amount</span>
-              <span className="text-xl font-extrabold text-slate-900 group-hover:text-blue-600 transition">
-                {formatINR(currentGst.chennai)}
-              </span>
+            <div className="space-y-2">
+              <div className="p-2.5 rounded-lg bg-rose-50/60 border border-rose-100 flex items-center justify-between">
+                <span className="text-xs font-bold text-rose-700 uppercase tracking-wide">GST Payable</span>
+                <span className="text-lg font-black text-rose-600">
+                  {formatINR(chennaiGst.payable)}
+                </span>
+              </div>
+
+              <div className="p-2.5 rounded-lg bg-emerald-50/60 border border-emerald-100 flex items-center justify-between">
+                <span className="text-xs font-bold text-emerald-700 uppercase tracking-wide">GST Receivables</span>
+                <span className="text-lg font-black text-emerald-600">
+                  {formatINR(chennaiGst.receivable)}
+                </span>
+              </div>
             </div>
 
-            <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
+            <div className="pt-1 flex items-center justify-between text-[11px] text-slate-500">
               <span className="flex items-center space-x-1 text-slate-400">
                 <MapPin className="w-3 h-3 text-blue-400" />
                 <span>Tamil Nadu Unit</span>
@@ -382,30 +433,39 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
             </div>
           </div>
 
-          {/* BOX 3: GST PAYABLE - GOA */}
-          <div className="p-4 rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-teal-50/30 hover:border-teal-300 transition shadow-xs relative overflow-hidden group">
-            <div className="flex items-center justify-between">
+          {/* BOX 3: GOA */}
+          <div className="p-4 rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-teal-50/20 hover:border-teal-200 transition shadow-xs relative overflow-hidden group space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
               <div className="flex items-center space-x-2">
                 <div className="p-2 rounded-lg bg-teal-50 text-teal-600 border border-teal-100">
                   <Landmark className="w-4 h-4" />
                 </div>
                 <div>
                   <h3 className="font-extrabold text-slate-800 text-xs uppercase tracking-wider">
-                    GST Payable - Goa
+                    GST - Goa
                   </h3>
                   <span className="text-[10px] text-slate-500 font-mono">GSTIN: 30AAAAL1234F1Z8 (GA)</span>
                 </div>
               </div>
             </div>
 
-            <div className="mt-3.5 pt-2 border-t border-slate-100 flex items-baseline justify-between">
-              <span className="text-xs text-slate-500 font-medium">Daily Amount</span>
-              <span className="text-xl font-extrabold text-slate-900 group-hover:text-teal-600 transition">
-                {formatINR(currentGst.goa)}
-              </span>
+            <div className="space-y-2">
+              <div className="p-2.5 rounded-lg bg-rose-50/60 border border-rose-100 flex items-center justify-between">
+                <span className="text-xs font-bold text-rose-700 uppercase tracking-wide">GST Payable</span>
+                <span className="text-lg font-black text-rose-600">
+                  {formatINR(goaGst.payable)}
+                </span>
+              </div>
+
+              <div className="p-2.5 rounded-lg bg-emerald-50/60 border border-emerald-100 flex items-center justify-between">
+                <span className="text-xs font-bold text-emerald-700 uppercase tracking-wide">GST Receivables</span>
+                <span className="text-lg font-black text-emerald-600">
+                  {formatINR(goaGst.receivable)}
+                </span>
+              </div>
             </div>
 
-            <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
+            <div className="pt-1 flex items-center justify-between text-[11px] text-slate-500">
               <span className="flex items-center space-x-1 text-slate-400">
                 <MapPin className="w-3 h-3 text-teal-400" />
                 <span>Goa State Unit</span>
@@ -739,17 +799,17 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
         </div>
       </div>
 
-      {/* UPDATE TODAY'S GST PAYABLE MODAL */}
+      {/* UPDATE TODAY'S GST PAYABLE & RECEIVABLES MODAL */}
       {isEditingGst && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 space-y-4 my-8">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center space-x-2">
                 <div className="p-2 rounded-lg bg-amber-50 text-amber-700">
                   <Coins className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900 text-base">Update Today's GST Payable</h3>
+                  <h3 className="font-bold text-slate-900 text-base">Update Daily GST Summary</h3>
                   <p className="text-xs text-slate-500">{todayFormattedDate}</p>
                 </div>
               </div>
@@ -761,60 +821,135 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleSaveGst} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                  <span>GST Payable - Mumbai (MH)</span>
-                  <span className="text-[10px] text-slate-400">₹ INR</span>
-                </label>
-                <input
-                  type="number"
-                  required
-                  min="0"
-                  step="1000"
-                  value={editMumbai}
-                  onChange={(e) => setEditMumbai(Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-amber-500"
-                />
+            <form onSubmit={handleSaveGst} className="space-y-5 text-xs">
+              {/* MUMBAI */}
+              <div className="p-3.5 rounded-xl border border-indigo-100 bg-slate-50/50 space-y-2.5">
+                <div className="flex items-center space-x-2 font-bold text-slate-800 text-xs uppercase tracking-wide">
+                  <Building2 className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>GST - Mumbai (MH)</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-rose-700 mb-1">
+                      GST Payable <span className="text-[10px] text-rose-500 font-normal">(Red)</span>
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      step="1000"
+                      value={editMumbaiPayable}
+                      onChange={(e) => setEditMumbaiPayable(Number(e.target.value))}
+                      className="w-full px-3 py-2 border border-rose-200 rounded-lg text-xs font-bold text-rose-700 focus:ring-2 focus:ring-rose-500 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-emerald-700 mb-1">
+                      GST Receivables <span className="text-[10px] text-emerald-500 font-normal">(Green)</span>
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      step="1000"
+                      value={editMumbaiReceivable}
+                      onChange={(e) => setEditMumbaiReceivable(Number(e.target.value))}
+                      className="w-full px-3 py-2 border border-emerald-200 rounded-lg text-xs font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500 bg-white"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                  <span>GST Payable - Chennai (TN)</span>
-                  <span className="text-[10px] text-slate-400">₹ INR</span>
-                </label>
-                <input
-                  type="number"
-                  required
-                  min="0"
-                  step="1000"
-                  value={editChennai}
-                  onChange={(e) => setEditChennai(Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-amber-500"
-                />
+              {/* CHENNAI */}
+              <div className="p-3.5 rounded-xl border border-blue-100 bg-slate-50/50 space-y-2.5">
+                <div className="flex items-center space-x-2 font-bold text-slate-800 text-xs uppercase tracking-wide">
+                  <Factory className="w-3.5 h-3.5 text-blue-600" />
+                  <span>GST - Chennai (TN)</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-rose-700 mb-1">
+                      GST Payable <span className="text-[10px] text-rose-500 font-normal">(Red)</span>
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      step="1000"
+                      value={editChennaiPayable}
+                      onChange={(e) => setEditChennaiPayable(Number(e.target.value))}
+                      className="w-full px-3 py-2 border border-rose-200 rounded-lg text-xs font-bold text-rose-700 focus:ring-2 focus:ring-rose-500 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-emerald-700 mb-1">
+                      GST Receivables <span className="text-[10px] text-emerald-500 font-normal">(Green)</span>
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      step="1000"
+                      value={editChennaiReceivable}
+                      onChange={(e) => setEditChennaiReceivable(Number(e.target.value))}
+                      className="w-full px-3 py-2 border border-emerald-200 rounded-lg text-xs font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500 bg-white"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                  <span>GST Payable - Goa (GA)</span>
-                  <span className="text-[10px] text-slate-400">₹ INR</span>
-                </label>
-                <input
-                  type="number"
-                  required
-                  min="0"
-                  step="1000"
-                  value={editGoa}
-                  onChange={(e) => setEditGoa(Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-amber-500"
-                />
+              {/* GOA */}
+              <div className="p-3.5 rounded-xl border border-teal-100 bg-slate-50/50 space-y-2.5">
+                <div className="flex items-center space-x-2 font-bold text-slate-800 text-xs uppercase tracking-wide">
+                  <Landmark className="w-3.5 h-3.5 text-teal-600" />
+                  <span>GST - Goa (GA)</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-rose-700 mb-1">
+                      GST Payable <span className="text-[10px] text-rose-500 font-normal">(Red)</span>
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      step="1000"
+                      value={editGoaPayable}
+                      onChange={(e) => setEditGoaPayable(Number(e.target.value))}
+                      className="w-full px-3 py-2 border border-rose-200 rounded-lg text-xs font-bold text-rose-700 focus:ring-2 focus:ring-rose-500 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-emerald-700 mb-1">
+                      GST Receivables <span className="text-[10px] text-emerald-500 font-normal">(Green)</span>
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      step="1000"
+                      value={editGoaReceivable}
+                      onChange={(e) => setEditGoaReceivable(Number(e.target.value))}
+                      className="w-full px-3 py-2 border border-emerald-200 rounded-lg text-xs font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500 bg-white"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl flex items-center justify-between">
-                <span className="font-bold text-amber-900 text-xs">Combined Total GST Today:</span>
-                <span className="font-extrabold text-amber-700 text-sm">
-                  {formatINR((Number(editMumbai) || 0) + (Number(editChennai) || 0) + (Number(editGoa) || 0))}
-                </span>
+              {/* SUMMARY PREVIEW */}
+              <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl flex items-center justify-between text-xs">
+                <div>
+                  <span className="font-bold text-slate-700 block">Combined Total Payable:</span>
+                  <span className="font-black text-rose-600 text-sm">
+                    {formatINR((Number(editMumbaiPayable) || 0) + (Number(editChennaiPayable) || 0) + (Number(editGoaPayable) || 0))}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="font-bold text-slate-700 block">Combined Total Receivables:</span>
+                  <span className="font-black text-emerald-600 text-sm">
+                    {formatINR((Number(editMumbaiReceivable) || 0) + (Number(editChennaiReceivable) || 0) + (Number(editGoaReceivable) || 0))}
+                  </span>
+                </div>
               </div>
 
               <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
@@ -830,7 +965,7 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
                   className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold cursor-pointer shadow flex items-center space-x-1.5"
                 >
                   <Save className="w-4 h-4" />
-                  <span>Save Today's GST</span>
+                  <span>Save GST Amounts</span>
                 </button>
               </div>
             </form>

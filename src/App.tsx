@@ -62,7 +62,22 @@ export default function App() {
   });
   const [gstPayable, setGstPayable] = useState<GstPayableState>(() => {
     const saved = localStorage.getItem('llabdhi_gst_payable');
-    return saved ? JSON.parse(saved) : INITIAL_GST_PAYABLE;
+    if (!saved) return INITIAL_GST_PAYABLE;
+    try {
+      const parsed = JSON.parse(saved);
+      // Migrate old primitive number format if present
+      const mumbai = typeof parsed.mumbai === 'number' ? { payable: parsed.mumbai, receivable: 0 } : (parsed.mumbai || INITIAL_GST_PAYABLE.mumbai);
+      const chennai = typeof parsed.chennai === 'number' ? { payable: parsed.chennai, receivable: 0 } : (parsed.chennai || INITIAL_GST_PAYABLE.chennai);
+      const goa = typeof parsed.goa === 'number' ? { payable: parsed.goa, receivable: 0 } : (parsed.goa || INITIAL_GST_PAYABLE.goa);
+      return {
+        mumbai,
+        chennai,
+        goa,
+        lastUpdated: parsed.lastUpdated || new Date().toISOString().split('T')[0],
+      };
+    } catch {
+      return INITIAL_GST_PAYABLE;
+    }
   });
 
   const handleUpdateGstPayable = (updated: GstPayableState) => {
