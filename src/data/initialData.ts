@@ -234,77 +234,7 @@ export const INITIAL_EMIS: EmiItem[] = [
   },
 ];
 
-export const INITIAL_COMPLIANCE: ComplianceItem[] = [
-  {
-    id: 'CMP-401',
-    title: 'TDS Deposit',
-    period: 'July 2026',
-    dueDate: '2026-08-07', // Due in 8 days
-    governingAuthority: 'Income Tax Dept',
-    status: 'Pending',
-    estimatedAmount: 185000,
-    responsibility: 'CA Mehta & Associates',
-  },
-  {
-    id: 'CMP-402',
-    title: 'GST GSTR-1',
-    period: 'July 2026',
-    dueDate: '2026-08-11',
-    governingAuthority: 'GSTN Portal',
-    status: 'Pending',
-    responsibility: 'In-house Finance Team',
-  },
-  {
-    id: 'CMP-403',
-    title: 'GST GSTR-3B',
-    period: 'July 2026',
-    dueDate: '2026-08-20',
-    governingAuthority: 'GSTN Portal',
-    status: 'Pending',
-    estimatedAmount: 840000,
-    responsibility: 'In-house Finance Team',
-  },
-  {
-    id: 'CMP-404',
-    title: 'DIR-3 KYC',
-    period: 'FY 2025-26',
-    dueDate: '2026-08-02', // Due in 3 days - Urgent!
-    governingAuthority: 'MCA V3 Portal',
-    status: 'Pending',
-    estimatedAmount: 5000,
-    responsibility: 'Company Secretary Apex',
-  },
-  {
-    id: 'CMP-405',
-    title: 'LLP Form 11',
-    period: 'FY 2025-26 Annual Return',
-    dueDate: '2026-05-30',
-    governingAuthority: 'MCA V3 Portal',
-    status: 'Filed',
-    filingDate: '2026-05-28',
-    arnChallanRef: 'MCA/AA8832101/2026',
-    responsibility: 'CS Apex',
-  },
-  {
-    id: 'CMP-406',
-    title: 'LLP Form 8',
-    period: 'FY 2025-26 Statement of Account',
-    dueDate: '2026-10-30',
-    governingAuthority: 'MCA V3 Portal',
-    status: 'Pending',
-    responsibility: 'CA Mehta & Associates',
-  },
-  {
-    id: 'CMP-407',
-    title: 'Advance Tax',
-    period: 'Q2 FY 2026-27 (2nd Instalment)',
-    dueDate: '2026-09-15',
-    governingAuthority: 'Income Tax Dept',
-    status: 'Pending',
-    estimatedAmount: 1200000,
-    responsibility: 'CA Mehta & Associates',
-  },
-];
+export const INITIAL_COMPLIANCE: ComplianceItem[] = [];
 
 export const INITIAL_CALENDAR_LOGS: CalendarLogItem[] = [];
 

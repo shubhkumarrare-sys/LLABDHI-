@@ -43,10 +43,39 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState('dashboard');
 
+  // Helper to check excluded debtors (DEB-284 to DEB-296)
+  const isExcludedDebtor = (d: DebtorItem) => {
+    if (!d || !d.id) return true;
+    const match = String(d.id).trim().toUpperCase().match(/^DEB-(\d+)$/);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num >= 284 && num <= 296) return true;
+    }
+    return false;
+  };
+
   // Master Operational State (LLABDHI OPS NODE) with localStorage persistence
   const [debtors, setDebtors] = useState<DebtorItem[]>(() => {
-    const saved = localStorage.getItem('llabdhi_debtors_v2');
-    return saved ? JSON.parse(saved) : INITIAL_DEBTORS;
+    const saved = localStorage.getItem('llabdhi_debtors_v3');
+    if (saved) {
+      try {
+        const parsed: DebtorItem[] = JSON.parse(saved);
+        return parsed.filter((d) => !isExcludedDebtor(d));
+      } catch {
+        return INITIAL_DEBTORS.filter((d) => !isExcludedDebtor(d));
+      }
+    }
+    // Check v2 fallback
+    const savedV2 = localStorage.getItem('llabdhi_debtors_v2');
+    if (savedV2) {
+      try {
+        const parsed: DebtorItem[] = JSON.parse(savedV2);
+        return parsed.filter((d) => !isExcludedDebtor(d));
+      } catch {
+        return INITIAL_DEBTORS.filter((d) => !isExcludedDebtor(d));
+      }
+    }
+    return INITIAL_DEBTORS.filter((d) => !isExcludedDebtor(d));
   });
   const [creditors, setCreditors] = useState<CreditorItem[]>(() => {
     const saved = localStorage.getItem('llabdhi_creditors_v5');
@@ -73,7 +102,7 @@ export default function App() {
     return saved ? JSON.parse(saved) : INITIAL_EMIS;
   });
   const [compliance, setCompliance] = useState<ComplianceItem[]>(() => {
-    const saved = localStorage.getItem('llabdhi_compliance');
+    const saved = localStorage.getItem('llabdhi_compliance_v2');
     return saved ? JSON.parse(saved) : INITIAL_COMPLIANCE;
   });
   const [gstPayable, setGstPayable] = useState<GstPayableState>(() => {
@@ -120,8 +149,9 @@ export default function App() {
     settings?: AppSettings;
   }) => {
     if (newData.debtors) {
-      setDebtors(newData.debtors);
-      localStorage.setItem('llabdhi_debtors_v2', JSON.stringify(newData.debtors));
+      const filtered = newData.debtors.filter((d) => !isExcludedDebtor(d));
+      setDebtors(filtered);
+      localStorage.setItem('llabdhi_debtors_v3', JSON.stringify(filtered));
     }
     if (newData.creditors) {
       const filteredCreditors = newData.creditors.filter(
@@ -142,7 +172,7 @@ export default function App() {
     }
     if (newData.compliance) {
       setCompliance(newData.compliance);
-      localStorage.setItem('llabdhi_compliance', JSON.stringify(newData.compliance));
+      localStorage.setItem('llabdhi_compliance_v2', JSON.stringify(newData.compliance));
     }
     if (newData.settings) setSettings(newData.settings);
   };
@@ -166,16 +196,16 @@ export default function App() {
   // Handlers for Debtors
   const handleUpdateDebtor = (updated: DebtorItem) => {
     setDebtors((prev) => {
-      const next = prev.map((d) => (d.id === updated.id ? updated : d));
-      localStorage.setItem('llabdhi_debtors_v2', JSON.stringify(next));
+      const next = prev.map((d) => (d.id === updated.id ? updated : d)).filter((d) => !isExcludedDebtor(d));
+      localStorage.setItem('llabdhi_debtors_v3', JSON.stringify(next));
       return next;
     });
   };
 
   const handleAddDebtor = (newItem: DebtorItem) => {
     setDebtors((prev) => {
-      const next = [newItem, ...prev];
-      localStorage.setItem('llabdhi_debtors_v2', JSON.stringify(next));
+      const next = [newItem, ...prev].filter((d) => !isExcludedDebtor(d));
+      localStorage.setItem('llabdhi_debtors_v3', JSON.stringify(next));
       return next;
     });
   };
@@ -228,7 +258,7 @@ export default function App() {
   const handleUpdateCompliance = (updated: ComplianceItem) => {
     setCompliance((prev) => {
       const next = prev.map((c) => (c.id === updated.id ? updated : c));
-      localStorage.setItem('llabdhi_compliance', JSON.stringify(next));
+      localStorage.setItem('llabdhi_compliance_v2', JSON.stringify(next));
       return next;
     });
   };
@@ -236,7 +266,7 @@ export default function App() {
   const handleAddCompliance = (newItem: ComplianceItem) => {
     setCompliance((prev) => {
       const next = [newItem, ...prev];
-      localStorage.setItem('llabdhi_compliance', JSON.stringify(next));
+      localStorage.setItem('llabdhi_compliance_v2', JSON.stringify(next));
       return next;
     });
   };
@@ -244,7 +274,7 @@ export default function App() {
   const handleDeleteCompliance = (id: string) => {
     setCompliance((prev) => {
       const next = prev.filter((c) => c.id !== id);
-      localStorage.setItem('llabdhi_compliance', JSON.stringify(next));
+      localStorage.setItem('llabdhi_compliance_v2', JSON.stringify(next));
       return next;
     });
   };
@@ -452,6 +482,7 @@ export default function App() {
             onUpdateCompliance={handleUpdateCompliance}
             onAddCompliance={handleAddCompliance}
             onDeleteCompliance={handleDeleteCompliance}
+            onOpenSyncModal={() => setIsSheetSyncOpen(true)}
           />
         )}
 

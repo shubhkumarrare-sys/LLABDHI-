@@ -12,6 +12,7 @@ import {
   ShieldAlert,
   Plus,
   Trash2,
+  RefreshCw,
 } from 'lucide-react';
 
 interface ComplianceManagerProps {
@@ -19,6 +20,7 @@ interface ComplianceManagerProps {
   onUpdateCompliance: (updatedItem: ComplianceItem) => void;
   onAddCompliance?: (newItem: ComplianceItem) => void;
   onDeleteCompliance?: (id: string) => void;
+  onOpenSyncModal?: () => void;
 }
 
 export const ComplianceManager: React.FC<ComplianceManagerProps> = ({
@@ -26,6 +28,7 @@ export const ComplianceManager: React.FC<ComplianceManagerProps> = ({
   onUpdateCompliance,
   onAddCompliance,
   onDeleteCompliance,
+  onOpenSyncModal,
 }) => {
   const [selectedCompliance, setSelectedCompliance] = useState<ComplianceItem | null>(null);
   const [arnChallanRef, setArnChallanRef] = useState('');
@@ -113,6 +116,15 @@ export const ComplianceManager: React.FC<ComplianceManagerProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {onOpenSyncModal && (
+            <button
+              onClick={onOpenSyncModal}
+              className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center space-x-1.5 transition cursor-pointer shadow"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Sync Google Sheet</span>
+            </button>
+          )}
           <button
             onClick={() => setIsAddModalOpen(true)}
             className="px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center space-x-1.5 transition cursor-pointer shadow"
@@ -290,6 +302,27 @@ export const ComplianceManager: React.FC<ComplianceManagerProps> = ({
             </tbody>
           </table>
         </div>
+
+        {complianceList.length === 0 && (
+          <div className="p-10 text-center bg-slate-50 border-t border-slate-200">
+            <div className="max-w-md mx-auto space-y-3">
+              <FileCheck2 className="w-10 h-10 text-slate-400 mx-auto stroke-1" />
+              <h3 className="text-sm font-bold text-slate-800">No Statutory Compliance Records</h3>
+              <p className="text-xs text-slate-500">
+                All statutory compliance records have been cleared. Sync compliance obligations from your Google Sheet <strong className="text-slate-700 font-semibold font-mono">"LLP Compliance"</strong> tab or add new items manually.
+              </p>
+              {onOpenSyncModal && (
+                <button
+                  onClick={onOpenSyncModal}
+                  className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs transition cursor-pointer shadow mt-2"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Sync "LLP Compliance" Tab from Google Sheet</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* UPDATE FILING & ARN MODAL */}

@@ -144,15 +144,59 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
     return val || '';
   };
 
-  // Helper to parse CSV rows
+  const extractComplianceTitle = (r: any): string => {
+    let val = getFieldVal(r, [
+      'title',
+      'compliance title',
+      'compliance_title',
+      'complianceName',
+      'compliance_name',
+      'statutory compliance',
+      'statutory_compliance',
+      'statutory compliance title',
+      'compliance',
+      'compliance head',
+      'statutory head',
+      'tax head',
+      'particulars',
+      'title / return',
+      'compliance / return',
+      'compliance return',
+      'name',
+      'head',
+      'task',
+      'nature of payment',
+      'compliance requirement',
+      'description',
+      'details',
+    ]);
+    if (val) {
+      const lower = val.trim().toLowerCase();
+      if (
+        lower === 'title' ||
+        lower === 'compliance title' ||
+        lower === 'statutory compliance' ||
+        lower === 'compliance' ||
+        lower === 'particulars' ||
+        lower === 'name' ||
+        lower === 'task' ||
+        lower === 'head' ||
+        lower === 'compliance head' ||
+        lower === 'title / return'
+      ) {
+        return '';
+      }
+      return val.trim();
+    }
+    return '';
+  };
+
+  // Helper to parse CSV rows with full quote-awareness
   const parseCsvText = (csvText: string) => {
     const lines = csvText.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
     if (lines.length < 2) return [];
 
-    const headers = lines[0].split(',').map((h) => h.replace(/^"|"$/g, '').trim().toLowerCase());
-    
-    return lines.slice(1).map((line) => {
-      // Basic CSV split considering quotes
+    const parseCsvRow = (line: string): string[] => {
       const values: string[] = [];
       let currentVal = '';
       let inQuotes = false;
@@ -162,17 +206,23 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
         if (char === '"' || char === "'") {
           inQuotes = !inQuotes;
         } else if (char === ',' && !inQuotes) {
-          values.push(currentVal.trim());
+          values.push(currentVal.trim().replace(/^["']|["']$/g, ''));
           currentVal = '';
         } else {
           currentVal += char;
         }
       }
-      values.push(currentVal.trim());
+      values.push(currentVal.trim().replace(/^["']|["']$/g, ''));
+      return values;
+    };
 
+    const headers = parseCsvRow(lines[0]).map((h) => h.toLowerCase().trim());
+    
+    return lines.slice(1).map((line) => {
+      const values = parseCsvRow(line);
       const rowObj: Record<string, string> = {};
       headers.forEach((h, idx) => {
-        rowObj[h] = values[idx] ? values[idx].replace(/^"|"$/g, '') : '';
+        rowObj[h] = values[idx] !== undefined ? values[idx] : '';
       });
       return rowObj;
     });
@@ -219,18 +269,28 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
           }
 
           // Transform fetched CSV rows to typed objects
-          const newDebtors: DebtorItem[] = (fetchedResults['Debtors'] || []).map((r: any, idx: number) => ({
-            id: getFieldVal(r, ['id', 'deb_id', 'debtor_id', 'invoice_id']) || `DEB-${200 + idx}`,
-            clientEntity: extractDebtorName(r),
-            invoiceRef: getFieldVal(r, ['invoiceRef', 'invoice ref', 'invoice_ref', 'invoice', 'inv no', 'bill ref']) || `INV-${100 + idx}`,
-            invoiceDate: getFieldVal(r, ['invoiceDate', 'invoice date', 'invoice_date', 'date', 'inv date']) || '2026-07-01',
-            dueDate: getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']) || '2026-08-01',
-            amount: parseFloat(getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount']).replace(/[^0-9.]/g, '')) || 100000,
-            status: (getFieldVal(r, ['status', 'payment status', 'state']) as any) || 'Pending',
-            contactEmail: getFieldVal(r, ['contactEmail', 'contact email', 'email', 'mail']),
-            contactPerson: getFieldVal(r, ['contactPerson', 'contact person', 'contact', 'person']),
-            notes: getFieldVal(r, ['notes', 'remarks', 'description', 'details']),
-          }));
+          const newDebtors: DebtorItem[] = (fetchedResults['Debtors'] || [])
+            .map((r: any, idx: number) => ({
+              id: getFieldVal(r, ['id', 'deb_id', 'debtor_id', 'invoice_id']) || `DEB-${200 + idx}`,
+              clientEntity: extractDebtorName(r),
+              invoiceRef: getFieldVal(r, ['invoiceRef', 'invoice ref', 'invoice_ref', 'invoice', 'inv no', 'bill ref']) || `INV-${100 + idx}`,
+              invoiceDate: getFieldVal(r, ['invoiceDate', 'invoice date', 'invoice_date', 'date', 'inv date']) || '2026-07-01',
+              dueDate: getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']) || '2026-08-01',
+              amount: parseFloat(getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount']).replace(/[^0-9.]/g, '')) || 100000,
+              status: (getFieldVal(r, ['status', 'payment status', 'state']) as any) || 'Pending',
+              contactEmail: getFieldVal(r, ['contactEmail', 'contact email', 'email', 'mail']),
+              contactPerson: getFieldVal(r, ['contactPerson', 'contact person', 'contact', 'person']),
+              notes: getFieldVal(r, ['notes', 'remarks', 'description', 'details']),
+            }))
+            .filter((d: DebtorItem) => {
+              if (!d || !d.clientEntity || d.clientEntity.trim() === '') return false;
+              const match = String(d.id).trim().toUpperCase().match(/^DEB-(\d+)$/);
+              if (match) {
+                const num = parseInt(match[1], 10);
+                if (num >= 284 && num <= 296) return false;
+              }
+              return true;
+            });
 
           const newCreditors: CreditorItem[] = (fetchedResults['Creditors'] || [])
             .map((r: any, idx: number) => ({
@@ -364,18 +424,28 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
         }
 
         if (targetCategory === 'debtors') {
-          const newDebtors: DebtorItem[] = rows.map((r, idx) => ({
-            id: getFieldVal(r, ['id', 'deb_id', 'debtor_id', 'invoice_id']) || `DEB-${500 + idx}`,
-            clientEntity: extractDebtorName(r),
-            invoiceRef: getFieldVal(r, ['invoiceRef', 'invoice ref', 'invoice_ref', 'invoice', 'inv no', 'bill ref']) || `INV-${100 + idx}`,
-            invoiceDate: getFieldVal(r, ['invoiceDate', 'invoice date', 'invoice_date', 'date', 'inv date']) || '2026-07-01',
-            dueDate: getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']) || '2026-08-01',
-            amount: parseFloat(getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount']).replace(/[^0-9.]/g, '')) || 100000,
-            status: (getFieldVal(r, ['status', 'payment status', 'state']) as any) || 'Pending',
-            contactEmail: getFieldVal(r, ['contactEmail', 'contact email', 'email', 'mail']),
-            contactPerson: getFieldVal(r, ['contactPerson', 'contact person', 'contact', 'person']),
-            notes: getFieldVal(r, ['notes', 'remarks', 'description', 'details']),
-          }));
+          const newDebtors: DebtorItem[] = rows
+            .map((r, idx) => ({
+              id: getFieldVal(r, ['id', 'deb_id', 'debtor_id', 'invoice_id']) || `DEB-${500 + idx}`,
+              clientEntity: extractDebtorName(r),
+              invoiceRef: getFieldVal(r, ['invoiceRef', 'invoice ref', 'invoice_ref', 'invoice', 'inv no', 'bill ref']) || `INV-${100 + idx}`,
+              invoiceDate: getFieldVal(r, ['invoiceDate', 'invoice date', 'invoice_date', 'date', 'inv date']) || '2026-07-01',
+              dueDate: getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']) || '2026-08-01',
+              amount: parseFloat(getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount']).replace(/[^0-9.]/g, '')) || 100000,
+              status: (getFieldVal(r, ['status', 'payment status', 'state']) as any) || 'Pending',
+              contactEmail: getFieldVal(r, ['contactEmail', 'contact email', 'email', 'mail']),
+              contactPerson: getFieldVal(r, ['contactPerson', 'contact person', 'contact', 'person']),
+              notes: getFieldVal(r, ['notes', 'remarks', 'description', 'details']),
+            }))
+            .filter((d: DebtorItem) => {
+              if (!d || !d.clientEntity || d.clientEntity.trim() === '') return false;
+              const match = String(d.id).trim().toUpperCase().match(/^DEB-(\d+)$/);
+              if (match) {
+                const num = parseInt(match[1], 10);
+                if (num >= 284 && num <= 296) return false;
+              }
+              return true;
+            });
 
           setParsedPreview({
             debtorsCount: newDebtors.length,
