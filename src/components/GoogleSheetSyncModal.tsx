@@ -126,8 +126,22 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
     ]);
     if (val) {
       val = val.replace(/^(client|vendor|supplier|creditor|debtor)\s*[:|-]?\s*/i, '').trim();
+      const lower = val.toLowerCase();
+      if (
+        lower === 'creditor entity' ||
+        lower === 'vendor entity' ||
+        lower === 'vendor' ||
+        lower === 'supplier' ||
+        lower === 'particulars' ||
+        lower === 'entity name' ||
+        lower === 'name' ||
+        lower === 'vendor name' ||
+        lower === 'creditor name'
+      ) {
+        return '';
+      }
     }
-    return val || 'Creditor Entity';
+    return val || '';
   };
 
   // Helper to parse CSV rows
@@ -218,16 +232,23 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
             notes: getFieldVal(r, ['notes', 'remarks', 'description', 'details']),
           }));
 
-          const newCreditors: CreditorItem[] = (fetchedResults['Creditors'] || []).map((r: any, idx: number) => ({
-            id: getFieldVal(r, ['id', 'cre_id', 'creditor_id', 'bill_id']) || `CRE-${300 + idx}`,
-            vendorEntity: extractCreditorName(r),
-            invoiceRef: getFieldVal(r, ['invoiceRef', 'invoice ref', 'invoice_ref', 'invoice', 'inv no', 'bill ref']) || `BILL-${100 + idx}`,
-            dueDate: getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']) || '2026-08-05',
-            amount: parseFloat(getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount']).replace(/[^0-9.]/g, '')) || 50000,
-            category: (getFieldVal(r, ['category', 'type', 'head', 'vendor category']) as any) || 'Raw Material',
-            status: (getFieldVal(r, ['status', 'payment status', 'state']) as any) || 'Pending',
-            notes: getFieldVal(r, ['notes', 'remarks', 'description', 'details']),
-          }));
+          const newCreditors: CreditorItem[] = (fetchedResults['Creditors'] || [])
+            .map((r: any, idx: number) => ({
+              id: getFieldVal(r, ['id', 'cre_id', 'creditor_id', 'bill_id']) || `CRE-${300 + idx}`,
+              vendorEntity: extractCreditorName(r),
+              invoiceRef: getFieldVal(r, ['invoiceRef', 'invoice ref', 'invoice_ref', 'invoice', 'inv no', 'bill ref']) || `BILL-${100 + idx}`,
+              dueDate: getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']) || '2026-08-05',
+              amount: parseFloat((getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount']) || '0').replace(/[^0-9.]/g, '')) || 0,
+              category: (getFieldVal(r, ['category', 'type', 'head', 'vendor category']) as any) || 'Raw Material',
+              status: (getFieldVal(r, ['status', 'payment status', 'state']) as any) || 'Pending',
+              notes: getFieldVal(r, ['notes', 'remarks', 'description', 'details']),
+            }))
+            .filter(
+              (c: CreditorItem) =>
+                c.id !== 'CRE-301' &&
+                c.id !== 'CRE-302' &&
+                Boolean(c.vendorEntity && c.vendorEntity.trim() !== '')
+            );
 
           const rawEmiRows = fetchedResults['EMIs'] || fetchedResults['EMI'] || fetchedResults['Loans'] || fetchedResults['Emi'] || [];
           const newEmis: EmiItem[] = rawEmiRows.map((r: any, idx: number) => ({
@@ -364,16 +385,23 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
             data: { debtors: newDebtors },
           });
         } else if (targetCategory === 'creditors') {
-          const newCreditors: CreditorItem[] = rows.map((r, idx) => ({
-            id: getFieldVal(r, ['id', 'cre_id', 'creditor_id', 'bill_id']) || `CRE-${500 + idx}`,
-            vendorEntity: extractCreditorName(r),
-            invoiceRef: getFieldVal(r, ['invoiceRef', 'invoice ref', 'invoice_ref', 'invoice', 'inv no', 'bill ref']) || `BILL-${100 + idx}`,
-            dueDate: getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']) || '2026-08-05',
-            amount: parseFloat(getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount']).replace(/[^0-9.]/g, '')) || 50000,
-            category: (getFieldVal(r, ['category', 'type', 'head', 'vendor category']) as any) || 'Raw Material',
-            status: (getFieldVal(r, ['status', 'payment status', 'state']) as any) || 'Pending',
-            notes: getFieldVal(r, ['notes', 'remarks', 'description', 'details']),
-          }));
+          const newCreditors: CreditorItem[] = rows
+            .map((r, idx) => ({
+              id: getFieldVal(r, ['id', 'cre_id', 'creditor_id', 'bill_id']) || `CRE-${500 + idx}`,
+              vendorEntity: extractCreditorName(r),
+              invoiceRef: getFieldVal(r, ['invoiceRef', 'invoice ref', 'invoice_ref', 'invoice', 'inv no', 'bill ref']) || `BILL-${100 + idx}`,
+              dueDate: getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']) || '2026-08-05',
+              amount: parseFloat((getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount']) || '0').replace(/[^0-9.]/g, '')) || 0,
+              category: (getFieldVal(r, ['category', 'type', 'head', 'vendor category']) as any) || 'Raw Material',
+              status: (getFieldVal(r, ['status', 'payment status', 'state']) as any) || 'Pending',
+              notes: getFieldVal(r, ['notes', 'remarks', 'description', 'details']),
+            }))
+            .filter(
+              (c: CreditorItem) =>
+                c.id !== 'CRE-301' &&
+                c.id !== 'CRE-302' &&
+                Boolean(c.vendorEntity && c.vendorEntity.trim() !== '')
+            );
 
           setParsedPreview({
             debtorsCount: 0,

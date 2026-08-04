@@ -49,8 +49,24 @@ export default function App() {
     return saved ? JSON.parse(saved) : INITIAL_DEBTORS;
   });
   const [creditors, setCreditors] = useState<CreditorItem[]>(() => {
-    const saved = localStorage.getItem('llabdhi_creditors_v2');
-    return saved ? JSON.parse(saved) : INITIAL_CREDITORS;
+    const saved = localStorage.getItem('llabdhi_creditors_v5');
+    if (saved) {
+      try {
+        const parsed: CreditorItem[] = JSON.parse(saved);
+        return parsed.filter(
+          (c) =>
+            c.id !== 'CRE-301' &&
+            c.id !== 'CRE-302' &&
+            c.vendorEntity &&
+            c.vendorEntity.trim() !== '' &&
+            c.vendorEntity.toLowerCase() !== 'creditor entity' &&
+            c.vendorEntity.toLowerCase() !== 'vendor entity'
+        );
+      } catch {
+        return INITIAL_CREDITORS;
+      }
+    }
+    return INITIAL_CREDITORS;
   });
   const [emis, setEmis] = useState<EmiItem[]>(() => {
     const saved = localStorage.getItem('llabdhi_emis_v2');
@@ -108,8 +124,17 @@ export default function App() {
       localStorage.setItem('llabdhi_debtors_v2', JSON.stringify(newData.debtors));
     }
     if (newData.creditors) {
-      setCreditors(newData.creditors);
-      localStorage.setItem('llabdhi_creditors_v2', JSON.stringify(newData.creditors));
+      const filteredCreditors = newData.creditors.filter(
+        (c) =>
+          c.id !== 'CRE-301' &&
+          c.id !== 'CRE-302' &&
+          c.vendorEntity &&
+          c.vendorEntity.trim() !== '' &&
+          c.vendorEntity.toLowerCase() !== 'creditor entity' &&
+          c.vendorEntity.toLowerCase() !== 'vendor entity'
+      );
+      setCreditors(filteredCreditors);
+      localStorage.setItem('llabdhi_creditors_v5', JSON.stringify(filteredCreditors));
     }
     if (newData.emis) {
       setEmis(newData.emis);
@@ -158,16 +183,18 @@ export default function App() {
   // Handlers for Creditors
   const handleUpdateCreditor = (updated: CreditorItem) => {
     setCreditors((prev) => {
-      const next = prev.map((c) => (c.id === updated.id ? updated : c));
-      localStorage.setItem('llabdhi_creditors_v2', JSON.stringify(next));
+      const next = prev
+        .map((c) => (c.id === updated.id ? updated : c))
+        .filter((c) => c.id !== 'CRE-301' && c.id !== 'CRE-302');
+      localStorage.setItem('llabdhi_creditors_v5', JSON.stringify(next));
       return next;
     });
   };
 
   const handleAddCreditor = (newItem: CreditorItem) => {
     setCreditors((prev) => {
-      const next = [newItem, ...prev];
-      localStorage.setItem('llabdhi_creditors_v2', JSON.stringify(next));
+      const next = [newItem, ...prev].filter((c) => c.id !== 'CRE-301' && c.id !== 'CRE-302');
+      localStorage.setItem('llabdhi_creditors_v5', JSON.stringify(next));
       return next;
     });
   };
@@ -406,6 +433,7 @@ export default function App() {
             creditors={creditors}
             onUpdateCreditor={handleUpdateCreditor}
             onAddCreditor={handleAddCreditor}
+            onOpenSyncModal={() => setIsSheetSyncOpen(true)}
           />
         )}
 

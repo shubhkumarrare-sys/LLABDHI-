@@ -10,18 +10,21 @@ import {
   X,
   CreditCard,
   FileCheck,
+  RefreshCw,
 } from 'lucide-react';
 
 interface CreditorsManagerProps {
   creditors: CreditorItem[];
   onUpdateCreditor: (updatedItem: CreditorItem) => void;
   onAddCreditor: (newItem: CreditorItem) => void;
+  onOpenSyncModal?: () => void;
 }
 
 export const CreditorsManager: React.FC<CreditorsManagerProps> = ({
   creditors,
   onUpdateCreditor,
   onAddCreditor,
+  onOpenSyncModal,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
@@ -100,7 +103,7 @@ export const CreditorsManager: React.FC<CreditorsManagerProps> = ({
             Creditors & Accounts Payable (AP) Management
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Track supplier payments, raw material supplies (Tata Steel), machine maintenance (Trumpf), MSEDCL electricity bills, and logistics liabilities.
+            Track accounts payable invoices, manage vendor payout updates with UTR/Challan references, and sync live entities from your Google Sheet ("Creditors" tab).
           </p>
         </div>
 
@@ -109,6 +112,15 @@ export const CreditorsManager: React.FC<CreditorsManagerProps> = ({
             <span className="text-[10px] text-slate-400 block font-semibold uppercase">Total Payable Balance</span>
             <span className="text-lg font-extrabold text-rose-600">{formatINR(totalPendingOutflow)}</span>
           </div>
+          {onOpenSyncModal && (
+            <button
+              onClick={onOpenSyncModal}
+              className="inline-flex items-center space-x-2 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs transition cursor-pointer shadow shrink-0"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Sync Google Sheet</span>
+            </button>
+          )}
           <button
             onClick={() => setIsAddOpen(true)}
             className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs transition cursor-pointer shadow shrink-0"
@@ -238,6 +250,27 @@ export const CreditorsManager: React.FC<CreditorsManagerProps> = ({
             </tbody>
           </table>
         </div>
+
+        {filteredCreditors.length === 0 && (
+          <div className="p-10 text-center bg-slate-50 border-t border-slate-200">
+            <div className="max-w-md mx-auto space-y-3">
+              <Building2 className="w-10 h-10 text-slate-400 mx-auto stroke-1" />
+              <h3 className="text-sm font-bold text-slate-800">No Creditor Entities Loaded</h3>
+              <p className="text-xs text-slate-500">
+                All default creditor entities have been removed. Sync live accounts payable data directly from your Google Sheet <strong className="text-slate-700 font-semibold font-mono">"Creditors"</strong> tab.
+              </p>
+              {onOpenSyncModal && (
+                <button
+                  onClick={onOpenSyncModal}
+                  className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs transition cursor-pointer shadow mt-2"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Sync "Creditors" Tab from Google Sheet</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* RECORD PAYMENT MODAL */}
