@@ -296,7 +296,7 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
         </div>
       </div>
 
-      {/* TODAY'S GST PAYABLE & RECEIVABLES SECTION (BELOW 5-DAY, 15-DAY, AND 30-DAY HORIZONS) */}
+      {/* TODAY'S GST PAYABLE & GST AVAILABLE SECTION (BELOW 5-DAY, 15-DAY, AND 30-DAY HORIZONS) */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3.5">
           <div className="flex items-center space-x-3">
@@ -331,7 +331,7 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
               <div className="h-7 w-px bg-slate-200" />
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Total GST Receivables
+                  Total GST Available
                 </span>
                 <span className="text-base font-black text-emerald-600">
                   {formatINR(totalReceivable)}
@@ -376,7 +376,7 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
               </div>
 
               <div className="p-2.5 rounded-lg bg-emerald-50/60 border border-emerald-100 flex items-center justify-between">
-                <span className="text-xs font-bold text-emerald-700 uppercase tracking-wide">GST Receivables</span>
+                <span className="text-xs font-bold text-emerald-700 uppercase tracking-wide">GST Available</span>
                 <span className="text-lg font-black text-emerald-600">
                   {formatINR(mumbaiGst.receivable)}
                 </span>
@@ -417,7 +417,7 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
               </div>
 
               <div className="p-2.5 rounded-lg bg-emerald-50/60 border border-emerald-100 flex items-center justify-between">
-                <span className="text-xs font-bold text-emerald-700 uppercase tracking-wide">GST Receivables</span>
+                <span className="text-xs font-bold text-emerald-700 uppercase tracking-wide">GST Available</span>
                 <span className="text-lg font-black text-emerald-600">
                   {formatINR(chennaiGst.receivable)}
                 </span>
@@ -458,7 +458,7 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
               </div>
 
               <div className="p-2.5 rounded-lg bg-emerald-50/60 border border-emerald-100 flex items-center justify-between">
-                <span className="text-xs font-bold text-emerald-700 uppercase tracking-wide">GST Receivables</span>
+                <span className="text-xs font-bold text-emerald-700 uppercase tracking-wide">GST Available</span>
                 <span className="text-lg font-black text-emerald-600">
                   {formatINR(goaGst.receivable)}
                 </span>
@@ -799,7 +799,7 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
         </div>
       </div>
 
-      {/* UPDATE TODAY'S GST PAYABLE & RECEIVABLES MODAL */}
+      {/* UPDATE TODAY'S GST PAYABLE & GST AVAILABLE MODAL */}
       {isEditingGst && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 space-y-4 my-8">
@@ -845,7 +845,7 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
                   </div>
                   <div>
                     <label className="block font-semibold text-emerald-700 mb-1">
-                      GST Receivables <span className="text-[10px] text-emerald-500 font-normal">(Green)</span>
+                      GST Available <span className="text-[10px] text-emerald-500 font-normal">(Green)</span>
                     </label>
                     <input
                       type="number"
@@ -883,7 +883,7 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
                   </div>
                   <div>
                     <label className="block font-semibold text-emerald-700 mb-1">
-                      GST Receivables <span className="text-[10px] text-emerald-500 font-normal">(Green)</span>
+                      GST Available <span className="text-[10px] text-emerald-500 font-normal">(Green)</span>
                     </label>
                     <input
                       type="number"
@@ -921,7 +921,7 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
                   </div>
                   <div>
                     <label className="block font-semibold text-emerald-700 mb-1">
-                      GST Receivables <span className="text-[10px] text-emerald-500 font-normal">(Green)</span>
+                      GST Available <span className="text-[10px] text-emerald-500 font-normal">(Green)</span>
                     </label>
                     <input
                       type="number"
@@ -945,7 +945,7 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
                   </span>
                 </div>
                 <div className="text-right">
-                  <span className="font-bold text-slate-700 block">Combined Total Receivables:</span>
+                  <span className="font-bold text-slate-700 block">Combined Total GST Available:</span>
                   <span className="font-black text-emerald-600 text-sm">
                     {formatINR((Number(editMumbaiReceivable) || 0) + (Number(editChennaiReceivable) || 0) + (Number(editGoaReceivable) || 0))}
                   </span>
