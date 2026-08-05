@@ -9,11 +9,13 @@ import {
 } from '../types';
 
 export function getTodayStr(): string {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  // Current reference date: 5 August 2026
+  return '2026-08-05';
+}
+
+export function getHorizonStartDate(): string {
+  // Fixed Horizon Start Date: 1 April 2026
+  return '2026-04-01';
 }
 
 // Baseline reference date: Today's Date
@@ -29,12 +31,17 @@ export function calculateDaysDiff(targetDateStr: string, baseDateStr: string = g
   return Math.round(diffTime / (1000 * 3600 * 24));
 }
 
-export function formatDateRangeText(daysWindow: number, baseDateStr: string = getTodayStr()): string {
-  const base = new Date(baseDateStr + 'T00:00:00');
-  const endDate = new Date(base.getTime() + daysWindow * 24 * 60 * 60 * 1000);
+export function formatDateRangeText(
+  daysWindow: number,
+  todayDateStr: string = getTodayStr(),
+  startDateStr: string = getHorizonStartDate()
+): string {
+  const start = new Date(startDateStr + 'T00:00:00');
+  const today = new Date(todayDateStr + 'T00:00:00');
+  const endDate = new Date(today.getTime() + daysWindow * 24 * 60 * 60 * 1000);
   
   const options: Intl.DateTimeFormatOptions = { month: 'short', day: '2-digit', year: 'numeric' };
-  return `${base.toLocaleDateString('en-US', options)} – ${endDate.toLocaleDateString('en-US', options)}`;
+  return `${start.toLocaleDateString('en-US', options)} – ${endDate.toLocaleDateString('en-US', options)}`;
 }
 
 export function calculateCashFlowForHorizonDetails(
@@ -44,30 +51,36 @@ export function calculateCashFlowForHorizonDetails(
   compliance: ComplianceItem[],
   daysWindow: number,
   horizonLabel: string,
-  baseDateStr: string = getTodayStr()
+  todayDateStr: string = getTodayStr(),
+  startDateStr: string = getHorizonStartDate()
 ): HorizonCashFlowDetails {
+  const today = new Date(todayDateStr + 'T00:00:00');
+  const endDate = new Date(today.getTime() + daysWindow * 24 * 60 * 60 * 1000);
+  const endDateStr = endDate.toISOString().split('T')[0];
+
+  const isInRange = (dueDateStr: string) => {
+    if (!dueDateStr) return false;
+    return dueDateStr >= startDateStr && dueDateStr <= endDateStr;
+  };
+
   const inflows = debtors.filter((d) => {
     if (d.status === 'Paid') return false;
-    const diff = calculateDaysDiff(d.dueDate, baseDateStr);
-    return diff >= 0 && diff <= daysWindow;
+    return isInRange(d.dueDate);
   });
 
   const nextCreditors = creditors.filter((c) => {
     if (c.status === 'Paid') return false;
-    const diff = calculateDaysDiff(c.dueDate, baseDateStr);
-    return diff >= 0 && diff <= daysWindow;
+    return isInRange(c.dueDate);
   });
 
   const nextEmis = emis.filter((e) => {
     if (e.status === 'Paid') return false;
-    const diff = calculateDaysDiff(e.nextDueDate, baseDateStr);
-    return diff >= 0 && diff <= daysWindow;
+    return isInRange(e.nextDueDate);
   });
 
   const nextCompliance = compliance.filter((comp) => {
     if (comp.status === 'Filed' || comp.status === 'Paid') return false;
-    const diff = calculateDaysDiff(comp.dueDate, baseDateStr);
-    return diff >= 0 && diff <= daysWindow;
+    return isInRange(comp.dueDate);
   });
 
   const totalInflow = inflows.reduce((sum, item) => sum + item.amount, 0);
@@ -82,7 +95,7 @@ export function calculateCashFlowForHorizonDetails(
   return {
     daysWindow,
     horizonLabel,
-    dateRangeText: formatDateRangeText(daysWindow, baseDateStr),
+    dateRangeText: formatDateRangeText(daysWindow, todayDateStr, startDateStr),
     inflows,
     outflows: {
       creditors: nextCreditors,
@@ -100,16 +113,18 @@ export function calculate5DayCashFlow(
   creditors: CreditorItem[],
   emis: EmiItem[],
   compliance: ComplianceItem[],
-  baseDateStr: string = getTodayStr()
+  todayDateStr: string = getTodayStr(),
+  startDateStr: string = getHorizonStartDate()
 ): CashFlowSummary {
-  const horizon5Day = calculateCashFlowForHorizonDetails(debtors, creditors, emis, compliance, 5, '5-Day', baseDateStr);
-  const horizon15Day = calculateCashFlowForHorizonDetails(debtors, creditors, emis, compliance, 15, '15-Day', baseDateStr);
-  const horizonMonthly = calculateCashFlowForHorizonDetails(debtors, creditors, emis, compliance, 30, 'Monthly (30-Day)', baseDateStr);
+  const horizon5Day = calculateCashFlowForHorizonDetails(debtors, creditors, emis, compliance, 5, '5-Day', todayDateStr, startDateStr);
+  const horizon10Day = calculateCashFlowForHorizonDetails(debtors, creditors, emis, compliance, 10, '10-Day', todayDateStr, startDateStr);
+  const horizon15Day = calculateCashFlowForHorizonDetails(debtors, creditors, emis, compliance, 15, '15-Day', todayDateStr, startDateStr);
+  const horizonMonthly = calculateCashFlowForHorizonDetails(debtors, creditors, emis, compliance, 30, 'Monthly (30-Day)', todayDateStr, startDateStr);
 
   // High risk overdue debtors: overdue by >= 14 days OR amount >= 1,50,000
   const highRiskOverdueDebtors = debtors.filter((d) => {
     if (d.status !== 'Overdue') return false;
-    const daysOverdue = Math.abs(calculateDaysDiff(d.dueDate, baseDateStr));
+    const daysOverdue = Math.abs(calculateDaysDiff(d.dueDate, todayDateStr));
     return daysOverdue >= 14 || d.amount >= 1500000;
   });
 
@@ -122,6 +137,7 @@ export function calculate5DayCashFlow(
     net5DayCashPosition: horizon5Day.netCashPosition,
     highRiskOverdueDebtors,
     horizon5Day,
+    horizon10Day,
     horizon15Day,
     horizonMonthly,
   };

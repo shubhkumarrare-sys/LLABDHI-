@@ -298,9 +298,9 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
               id: getFieldVal(r, ['id', 'cre_id', 'creditor_id', 'bill_id']) || `CRE-${300 + idx}`,
               vendorEntity: extractCreditorName(r),
               invoiceRef: getFieldVal(r, ['invoiceRef', 'invoice ref', 'invoice_ref', 'invoice', 'inv no', 'bill ref']) || `BILL-${100 + idx}`,
-              dueDate: getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']) || '2026-08-05',
+              dueDate: getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']) || '2026-04-01',
               amount: parseFloat((getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount']) || '0').replace(/[^0-9.]/g, '')) || 0,
-              category: (getFieldVal(r, ['category', 'type', 'head', 'vendor category']) as any) || 'Raw Material',
+              narration: getFieldVal(r, ['narration', 'narration/details', 'narration / details', 'narration/description', 'category', 'type', 'head', 'vendor category', 'particulars', 'description', 'notes', 'remarks', 'purpose']) || 'Raw Material Supply',
               status: (getFieldVal(r, ['status', 'payment status', 'state']) as any) || 'Pending',
               notes: getFieldVal(r, ['notes', 'remarks', 'description', 'details']),
             }))
@@ -323,7 +323,7 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
               remainingBalance: parseFloat(getFieldVal(r, ['remainingBalance', 'remaining balance', 'remaining_balance', 'balance', 'principal remaining', 'outstanding']).replace(/[^0-9.]/g, '')) || 2500000,
               monthlyEmi: parseFloat(getFieldVal(r, ['monthlyEmi', 'monthly emi', 'monthly_emi', 'emi amount', 'emi', 'installment']).replace(/[^0-9.]/g, '')) || 50000,
               dueDayOfMonth: parseInt(getFieldVal(r, ['dueDayOfMonth', 'due day', 'due_day', 'day']).replace(/[^0-9]/g, '')) || 5,
-              nextDueDate: getFieldVal(r, ['nextDueDate', 'next due date', 'next_due_date', 'due date', 'due_date', 'pay date']) || '2026-08-05',
+              nextDueDate: getFieldVal(r, ['nextDueDate', 'next due date', 'next_due_date', 'due date', 'due_date', 'pay date']) || '2026-04-01',
               status: (getFieldVal(r, ['status', 'state', 'payment status']) as any) || 'Upcoming',
               lastPaymentDate: getFieldVal(r, ['lastPaymentDate', 'last payment date', 'last_payment_date', 'last paid date']),
               lastPaymentRef: getFieldVal(r, ['lastPaymentRef', 'last payment ref', 'last_payment_ref', 'payment ref', 'reference']),
@@ -494,9 +494,9 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
               id: getFieldVal(r, ['id', 'cre_id', 'creditor_id', 'bill_id']) || `CRE-${500 + idx}`,
               vendorEntity: extractCreditorName(r),
               invoiceRef: getFieldVal(r, ['invoiceRef', 'invoice ref', 'invoice_ref', 'invoice', 'inv no', 'bill ref']) || `BILL-${100 + idx}`,
-              dueDate: getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']) || '2026-08-05',
+              dueDate: getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']) || '2026-04-01',
               amount: parseFloat((getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount']) || '0').replace(/[^0-9.]/g, '')) || 0,
-              category: (getFieldVal(r, ['category', 'type', 'head', 'vendor category']) as any) || 'Raw Material',
+              narration: getFieldVal(r, ['narration', 'narration/details', 'narration / details', 'narration/description', 'category', 'type', 'head', 'vendor category', 'particulars', 'description', 'notes', 'remarks', 'purpose']) || 'Raw Material Supply',
               status: (getFieldVal(r, ['status', 'payment status', 'state']) as any) || 'Pending',
               notes: getFieldVal(r, ['notes', 'remarks', 'description', 'details']),
             }))
@@ -526,7 +526,7 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
               remainingBalance: parseFloat(getFieldVal(r, ['remainingBalance', 'remaining balance', 'remaining_balance', 'balance', 'principal remaining', 'outstanding']).replace(/[^0-9.]/g, '')) || 2500000,
               monthlyEmi: parseFloat(getFieldVal(r, ['monthlyEmi', 'monthly emi', 'monthly_emi', 'emi amount', 'emi', 'installment']).replace(/[^0-9.]/g, '')) || 50000,
               dueDayOfMonth: parseInt(getFieldVal(r, ['dueDayOfMonth', 'due day', 'due_day', 'day']).replace(/[^0-9]/g, '')) || 5,
-              nextDueDate: getFieldVal(r, ['nextDueDate', 'next due date', 'next_due_date', 'due date', 'due_date', 'pay date']) || '2026-08-05',
+              nextDueDate: getFieldVal(r, ['nextDueDate', 'next due date', 'next_due_date', 'due date', 'due_date', 'pay date']) || '2026-04-01',
               status: (getFieldVal(r, ['status', 'state', 'payment status']) as any) || 'Upcoming',
               lastPaymentDate: getFieldVal(r, ['lastPaymentDate', 'last payment date', 'last_payment_date', 'last paid date']),
               lastPaymentRef: getFieldVal(r, ['lastPaymentRef', 'last payment ref', 'last_payment_ref', 'payment ref', 'reference']),
@@ -744,7 +744,7 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
                   Debtors columns: <code className="font-mono">Client Entity, Invoice Ref, Invoice Date, Due Date, Amount, Status</code>
                 </p>
                 <p>
-                  Creditors columns: <code className="font-mono">Vendor Entity, Invoice Ref, Due Date, Amount, Category, Status</code>
+                  Creditors columns: <code className="font-mono">Vendor Entity, Invoice Ref, Due Date, Amount, Narration, Status</code>
                 </p>
                 <p>
                   EMIs / Loans columns: <code className="font-mono">Party Name / Loan Name, Lender Bank, Vehicle Model, Monthly EMI, Due Date, Remaining Balance</code>

@@ -83,15 +83,21 @@ export default function App() {
     if (saved) {
       try {
         const parsed: CreditorItem[] = JSON.parse(saved);
-        return parsed.filter(
-          (c) =>
-            c.id !== 'CRE-301' &&
-            c.id !== 'CRE-302' &&
-            c.vendorEntity &&
-            c.vendorEntity.trim() !== '' &&
-            c.vendorEntity.toLowerCase() !== 'creditor entity' &&
-            c.vendorEntity.toLowerCase() !== 'vendor entity'
-        );
+        const filtered = parsed
+          .filter(
+            (c) =>
+              c.id !== 'CRE-301' &&
+              c.id !== 'CRE-302' &&
+              c.vendorEntity &&
+              c.vendorEntity.trim() !== '' &&
+              c.vendorEntity.toLowerCase() !== 'creditor entity' &&
+              c.vendorEntity.toLowerCase() !== 'vendor entity'
+          )
+          .map((c: any) => ({
+            ...c,
+            narration: c.narration || c.category || 'Raw Material Supply',
+          }));
+        return filtered.length > 0 ? filtered : INITIAL_CREDITORS;
       } catch {
         return INITIAL_CREDITORS;
       }

@@ -21,7 +21,7 @@ export interface CreditorItem {
   invoiceRef: string;
   dueDate: string; // YYYY-MM-DD
   amount: number;
-  category: 'Raw Material' | 'Machinery & Spares' | 'Logistics' | 'Utilities' | 'Services' | 'Packaging';
+  narration: string;
   status: ItemStatus;
   paymentDate?: string;
   arnChallanRef?: string;
@@ -102,7 +102,7 @@ export interface AppSettings {
   currencySymbol: string;
 }
 
-export type CashFlowHorizon = '5-Day' | '15-Day' | 'Monthly';
+export type CashFlowHorizon = '5-Day' | '10-Day' | '15-Day' | 'Monthly';
 
 export interface HorizonCashFlowDetails {
   daysWindow: number;
@@ -134,6 +134,7 @@ export interface CashFlowSummary extends HorizonCashFlowDetails {
 
   // Multi-horizon comparisons
   horizon5Day: HorizonCashFlowDetails;
+  horizon10Day: HorizonCashFlowDetails;
   horizon15Day: HorizonCashFlowDetails;
   horizonMonthly: HorizonCashFlowDetails;
 }

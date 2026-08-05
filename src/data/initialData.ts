@@ -25,8 +25,8 @@ export const INITIAL_DEBTORS: DebtorItem[] = [
     id: 'DEB-101',
     clientEntity: 'LABDHI IMPEX',
     invoiceRef: 'LL/2026-27/0412',
-    invoiceDate: '2026-06-15',
-    dueDate: '2026-07-15', // Overdue
+    invoiceDate: '2026-03-15',
+    dueDate: '2026-04-15', // Overdue
     amount: 1485000,
     status: 'Overdue',
     contactEmail: 'accounts@labdhiimpex.com',
@@ -37,8 +37,8 @@ export const INITIAL_DEBTORS: DebtorItem[] = [
     id: 'DEB-102',
     clientEntity: 'NG INDUSTRIES',
     invoiceRef: 'LL/2026-27/0428',
-    invoiceDate: '2026-06-20',
-    dueDate: '2026-07-20', // Overdue
+    invoiceDate: '2026-04-10',
+    dueDate: '2026-05-20', // Overdue
     amount: 860000,
     status: 'Overdue',
     contactEmail: 'purchase@ngindustries.co.in',
@@ -49,8 +49,8 @@ export const INITIAL_DEBTORS: DebtorItem[] = [
     id: 'DEB-103',
     clientEntity: 'SAWARIYA INDUSTRIES',
     invoiceRef: 'LL/2026-27/0450',
-    invoiceDate: '2026-07-01',
-    dueDate: '2026-07-31', // Overdue by 3 days
+    invoiceDate: '2026-05-15',
+    dueDate: '2026-06-28', // Overdue
     amount: 1120000,
     status: 'Overdue',
     contactEmail: 'billing@sawariyaind.com',
@@ -62,7 +62,7 @@ export const INITIAL_DEBTORS: DebtorItem[] = [
     clientEntity: 'EROS ELEVATORS & ESCALATORS PVT. LTD.',
     invoiceRef: 'LL/2026-27/0475',
     invoiceDate: '2026-07-05',
-    dueDate: '2026-08-04', // Due in 1 day
+    dueDate: '2026-08-08', // Due in 5-Day window (up to 10 Aug)
     amount: 2350000,
     status: 'Pending',
     contactEmail: 'accounts@eroselevators.com',
@@ -73,8 +73,8 @@ export const INITIAL_DEBTORS: DebtorItem[] = [
     id: 'DEB-105',
     clientEntity: 'JOHNSON LIFTS PRIVATE LIMITED (NAGPUR)',
     invoiceRef: 'LL/2026-27/0488',
-    invoiceDate: '2026-07-08',
-    dueDate: '2026-08-07', // Due in 4 days
+    invoiceDate: '2026-07-10',
+    dueDate: '2026-08-10', // Due in 5-Day window (up to 10 Aug)
     amount: 3150000,
     status: 'Pending',
     contactEmail: 'nagpur.ap@johnsonlifts.com',
@@ -85,7 +85,7 @@ export const INITIAL_DEBTORS: DebtorItem[] = [
     id: 'DEB-106',
     clientEntity: 'IFB INDUSTRIES LTD.',
     invoiceRef: 'LL/2026-27/0492',
-    invoiceDate: '2026-06-18',
+    invoiceDate: '2026-06-15',
     dueDate: '2026-07-18', // Overdue
     amount: 1920000,
     status: 'Overdue',
@@ -98,7 +98,7 @@ export const INITIAL_DEBTORS: DebtorItem[] = [
     clientEntity: 'SHREE MAHADEV STEEL',
     invoiceRef: 'LL/2026-27/0504',
     invoiceDate: '2026-07-12',
-    dueDate: '2026-08-11', // Due in 8 days
+    dueDate: '2026-08-14', // Due in 10-Day window (up to 15 Aug)
     amount: 1650000,
     status: 'Pending',
     contactEmail: 'sales@shreemahadevsteel.in',
@@ -109,8 +109,8 @@ export const INITIAL_DEBTORS: DebtorItem[] = [
     id: 'DEB-108',
     clientEntity: 'FABTECH TECHNOLOGIES CLEANROOMS LIMITED',
     invoiceRef: 'LL/2026-27/0515',
-    invoiceDate: '2026-07-15',
-    dueDate: '2026-08-14', // Due in 11 days
+    invoiceDate: '2026-07-18',
+    dueDate: '2026-08-18', // Due in 15-Day window (up to 20 Aug)
     amount: 2780000,
     status: 'Pending',
     contactEmail: 'finance@fabtech.in',
@@ -121,8 +121,8 @@ export const INITIAL_DEBTORS: DebtorItem[] = [
     id: 'DEB-109',
     clientEntity: 'AGI GREENPAC LIMITED',
     invoiceRef: 'LL/2026-27/0522',
-    invoiceDate: '2026-07-18',
-    dueDate: '2026-08-17', // Due in 14 days
+    invoiceDate: '2026-07-20',
+    dueDate: '2026-08-20', // Due in 15-Day window (up to 20 Aug)
     amount: 2100000,
     status: 'Pending',
     contactEmail: 'ap@agigreenpac.com',
@@ -133,8 +133,8 @@ export const INITIAL_DEBTORS: DebtorItem[] = [
     id: 'DEB-110',
     clientEntity: 'SAVERA PRECISION ENGINEERING PRIVATE LIMITED',
     invoiceRef: 'LL/2026-27/0530',
-    invoiceDate: '2026-07-20',
-    dueDate: '2026-08-19', // Due in 16 days
+    invoiceDate: '2026-07-25',
+    dueDate: '2026-08-28', // Due in Monthly window (up to 04 Sep)
     amount: 1750000,
     status: 'Pending',
     contactEmail: 'accounts@saveraprecision.com',
@@ -145,8 +145,8 @@ export const INITIAL_DEBTORS: DebtorItem[] = [
     id: 'DEB-111',
     clientEntity: 'WESTERN REFRIGERATION PVT. LTD',
     invoiceRef: 'LL/2026-27/0419',
-    invoiceDate: '2026-05-20',
-    dueDate: '2026-06-20', // Overdue
+    invoiceDate: '2026-04-05',
+    dueDate: '2026-05-10', // Overdue
     amount: 1840000,
     status: 'Overdue',
     contactEmail: 'vendorpay@westernref.com',
@@ -157,19 +157,70 @@ export const INITIAL_DEBTORS: DebtorItem[] = [
     id: 'DEB-112',
     clientEntity: 'FABSAFE TECHNOLOGIES PRIVATE LIMITED',
     invoiceRef: 'LL/2026-27/0460',
-    invoiceDate: '2026-06-25',
-    dueDate: '2026-07-25',
+    invoiceDate: '2026-04-20',
+    dueDate: '2026-05-25',
     amount: 980000,
     status: 'Paid',
-    paymentDate: '2026-07-29',
-    arnChallanRef: 'NEFT/AXISN2607299011',
+    paymentDate: '2026-05-29',
+    arnChallanRef: 'NEFT/AXISN2605299011',
     contactEmail: 'finance@fabsafetech.com',
     contactPerson: 'Deepak Chawla',
     notes: 'Fire safety equipment enclosure boxes.',
   },
 ];
 
-export const INITIAL_CREDITORS: CreditorItem[] = [];
+export const INITIAL_CREDITORS: CreditorItem[] = [
+  {
+    id: 'CRE-201',
+    vendorEntity: 'TATA STEEL PROCESSING AND DISTRIBUTION LIMITED',
+    invoiceRef: 'TSPDL/2026-27/0881',
+    dueDate: '2026-08-08', // Due in 5-Day window (up to 10 Aug)
+    amount: 3450000,
+    narration: 'HR Steel Sheet Coils 2.5mm & CR Strips Supply',
+    status: 'Pending',
+    notes: 'Primary raw material supply for chassis stamping.',
+  },
+  {
+    id: 'CRE-202',
+    vendorEntity: 'TRUMPF INDIA PRIVATE LIMITED',
+    invoiceRef: 'TRUMPF/IN/9924',
+    dueDate: '2026-08-12', // Due in 10-Day window (up to 15 Aug)
+    amount: 680000,
+    narration: 'Fiber Laser Cutting Optics & Maintenance Spares',
+    status: 'Pending',
+    notes: 'Annual maintenance and high precision nozzle spares.',
+  },
+  {
+    id: 'CRE-203',
+    vendorEntity: 'MAHARASHTRA STATE ELECTRICITY DISTRIBUTION CO LTD',
+    invoiceRef: 'MSEDCL/PUNE/0726',
+    dueDate: '2026-08-10', // Due in 5-Day window (up to 10 Aug)
+    amount: 520000,
+    narration: 'HT Industrial Power Electricity Bill (Factory Unit 1)',
+    status: 'Pending',
+    notes: 'Monthly power consumption for heavy press machinery.',
+  },
+  {
+    id: 'CRE-204',
+    vendorEntity: 'VRL LOGISTICS LIMITED',
+    invoiceRef: 'VRL/LR/2026/4410',
+    dueDate: '2026-08-18', // Due in 15-Day window (up to 20 Aug)
+    amount: 310000,
+    narration: 'Interstate Heavy Freight & Machinery Logistics',
+    status: 'Pending',
+    notes: 'Transport charges for dispatched elevator components.',
+  },
+  {
+    id: 'CRE-205',
+    vendorEntity: 'SCHUMACHER PACKAGING INDIA PVT LTD',
+    invoiceRef: 'SPI/INV/2026/1102',
+    dueDate: '2026-05-28', // Overdue
+    amount: 240000,
+    narration: 'Heavy Duty Corrugated Wooden & Paper Packaging',
+    status: 'Overdue',
+    notes: 'Custom export-grade packaging crates.',
+  },
+];
 
 export const INITIAL_EMIS: EmiItem[] = [
   {

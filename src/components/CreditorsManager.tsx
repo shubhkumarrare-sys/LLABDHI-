@@ -27,7 +27,7 @@ export const CreditorsManager: React.FC<CreditorsManagerProps> = ({
   onOpenSyncModal,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('All');
+  const [narrationFilter, setNarrationFilter] = useState<string>('All');
 
   // Payment Modal State
   const [selectedCreditor, setSelectedCreditor] = useState<CreditorItem | null>(null);
@@ -41,19 +41,24 @@ export const CreditorsManager: React.FC<CreditorsManagerProps> = ({
     invoiceRef: '',
     dueDate: '2026-08-10',
     amount: 150000,
-    category: 'Raw Material',
+    narration: 'Raw Material Purchase',
     status: 'Pending',
     notes: '',
   });
 
-  const categories = ['All', 'Raw Material', 'Machinery & Spares', 'Logistics', 'Utilities', 'Services'];
+  // Extract unique narrations for filter dropdown
+  const uniqueNarrations = Array.from(new Set(creditors.map((c) => c.narration).filter(Boolean)));
+  const narrationOptions = ['All', ...uniqueNarrations];
 
   const filteredCreditors = creditors.filter((item) => {
+    const search = searchTerm.toLowerCase();
     const matchesSearch =
-      item.vendorEntity.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.invoiceRef.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = categoryFilter === 'All' || item.category === categoryFilter;
-    return matchesSearch && matchesCategory;
+      item.vendorEntity.toLowerCase().includes(search) ||
+      item.invoiceRef.toLowerCase().includes(search) ||
+      (item.narration && item.narration.toLowerCase().includes(search)) ||
+      (item.notes && item.notes.toLowerCase().includes(search));
+    const matchesNarration = narrationFilter === 'All' || item.narration === narrationFilter;
+    return matchesSearch && matchesNarration;
   });
 
   const handlePaymentSubmit = (e: React.FormEvent) => {
@@ -81,7 +86,7 @@ export const CreditorsManager: React.FC<CreditorsManagerProps> = ({
       invoiceRef: newVendor.invoiceRef || `INV-${Math.floor(1000 + Math.random() * 9000)}`,
       dueDate: newVendor.dueDate || '2026-08-15',
       amount: Number(newVendor.amount),
-      category: (newVendor.category as any) || 'Raw Material',
+      narration: newVendor.narration || 'General Supplies',
       status: 'Pending',
       notes: newVendor.notes || '',
     };
@@ -138,7 +143,7 @@ export const CreditorsManager: React.FC<CreditorsManagerProps> = ({
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Search entity or invoice..."
+              placeholder="Search entity, invoice, narration..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -147,15 +152,15 @@ export const CreditorsManager: React.FC<CreditorsManagerProps> = ({
 
           <div className="flex items-center space-x-2 w-full sm:w-auto">
             <Filter className="w-4 h-4 text-slate-400" />
-            <span className="text-xs text-slate-500">Category:</span>
+            <span className="text-xs text-slate-500">Narration:</span>
             <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="py-1.5 px-3 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              value={narrationFilter}
+              onChange={(e) => setNarrationFilter(e.target.value)}
+              className="py-1.5 px-3 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-[200px] truncate"
             >
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
+              {narrationOptions.map((narr) => (
+                <option key={narr} value={narr}>
+                  {narr}
                 </option>
               ))}
             </select>
@@ -168,7 +173,7 @@ export const CreditorsManager: React.FC<CreditorsManagerProps> = ({
               <tr>
                 <th className="p-3">Ref ID</th>
                 <th className="p-3">Entity Name</th>
-                <th className="p-3">Category</th>
+                <th className="p-3">Narration</th>
                 <th className="p-3">Invoice Ref</th>
                 <th className="p-3">Due Date</th>
                 <th className="p-3 text-right">Amount (₹)</th>
@@ -188,9 +193,9 @@ export const CreditorsManager: React.FC<CreditorsManagerProps> = ({
                       <div className="text-[10px] text-slate-400 font-normal">{item.notes}</div>
                     </td>
                     <td className="p-3">
-                      <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-medium border border-slate-200">
-                        {item.category}
-                      </span>
+                      <div className="px-2 py-1 rounded bg-slate-100 text-slate-800 text-[11px] font-medium border border-slate-200 max-w-[220px] truncate" title={item.narration}>
+                        {item.narration || '-'}
+                      </div>
                     </td>
                     <td className="p-3 font-mono text-slate-700">{item.invoiceRef}</td>
                     <td className="p-3 text-slate-600">
@@ -381,16 +386,15 @@ export const CreditorsManager: React.FC<CreditorsManagerProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Category</label>
-                  <select
-                    value={newVendor.category}
-                    onChange={(e) => setNewVendor({ ...newVendor, category: e.target.value as any })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white"
-                  >
-                    {categories.filter((c) => c !== 'All').map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
+                  <label className="block font-semibold text-slate-700 mb-1">Narration *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. HR Steel Sheet Coils Supply"
+                    value={newVendor.narration || ''}
+                    onChange={(e) => setNewVendor({ ...newVendor, narration: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  />
                 </div>
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Amount (₹) *</label>

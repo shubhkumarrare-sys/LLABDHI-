@@ -58,6 +58,8 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
   openAiChatWithPrompt,
 }) => {
   const [selectedHorizon, setSelectedHorizon] = useState<CashFlowHorizon>('5-Day');
+  const [startDateStr, setStartDateStr] = useState<string>('2026-04-01');
+  const [todayDateStr, setTodayDateStr] = useState<string>('2026-08-05');
 
   // Today's GST Payable & Receivable State & Editing
   const currentGst: GstPayableState = gstPayable || {
@@ -120,11 +122,13 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
     year: 'numeric',
   });
 
-  const summary: CashFlowSummary = calculate5DayCashFlow(debtors, creditors, emis, compliance);
+  const summary: CashFlowSummary = calculate5DayCashFlow(debtors, creditors, emis, compliance, todayDateStr, startDateStr);
 
   // Determine active horizon details
   let activeDetails: HorizonCashFlowDetails;
-  if (selectedHorizon === '15-Day') {
+  if (selectedHorizon === '10-Day') {
+    activeDetails = summary.horizon10Day;
+  } else if (selectedHorizon === '15-Day') {
     activeDetails = summary.horizon15Day;
   } else if (selectedHorizon === 'Monthly') {
     activeDetails = summary.horizonMonthly;
@@ -137,53 +141,89 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
   return (
     <div className="space-y-6">
       {/* Horizon Selector Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-        <div className="flex items-center space-x-2">
-          <Layers className="w-5 h-5 text-indigo-600" />
-          <span className="text-sm font-bold text-slate-800">Select Cash Flow Horizon:</span>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center space-x-2">
+            <Layers className="w-5 h-5 text-indigo-600" />
+            <span className="text-sm font-bold text-slate-800">Select Cash Flow Horizon:</span>
+          </div>
+
+          <div className="flex items-center space-x-2 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg">
+            <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+            <span className="text-xs font-semibold text-slate-600">Start Date:</span>
+            <input
+              type="date"
+              value={startDateStr}
+              onChange={(e) => setStartDateStr(e.target.value)}
+              className="bg-white border border-slate-300 text-xs font-semibold text-slate-800 rounded px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+            />
+          </div>
+
+          <div className="flex items-center space-x-2 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg">
+            <Clock className="w-3.5 h-3.5 text-indigo-600" />
+            <span className="text-xs font-semibold text-slate-600">Today Date:</span>
+            <input
+              type="date"
+              value={todayDateStr}
+              onChange={(e) => setTodayDateStr(e.target.value)}
+              className="bg-white border border-slate-300 text-xs font-semibold text-slate-800 rounded px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+            />
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setSelectedHorizon('5-Day')}
-            className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center space-x-2 transition cursor-pointer ${
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer ${
               selectedHorizon === '5-Day'
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
-            <span>⚡ 5-Day Command Center</span>
+            <span>⚡ 5-Day</span>
+          </button>
+
+          <button
+            onClick={() => setSelectedHorizon('10-Day')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer ${
+              selectedHorizon === '10-Day'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5" />
+            <span>⚡ 10-Day</span>
           </button>
 
           <button
             onClick={() => setSelectedHorizon('15-Day')}
-            className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center space-x-2 transition cursor-pointer ${
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer ${
               selectedHorizon === '15-Day'
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
             <Calendar className="w-3.5 h-3.5" />
-            <span>📅 15-Day Command Center</span>
+            <span>📅 15-Day</span>
           </button>
 
           <button
             onClick={() => setSelectedHorizon('Monthly')}
-            className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center space-x-2 transition cursor-pointer ${
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer ${
               selectedHorizon === 'Monthly'
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
             <Calendar className="w-3.5 h-3.5" />
-            <span>📆 Monthly Command Center</span>
+            <span>📆 Monthly</span>
           </button>
         </div>
       </div>
 
-      {/* 3-Horizon Side-by-Side Comparison Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* 4-Horizon Side-by-Side Comparison Overview Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* 5-Day Card */}
         <div
           onClick={() => setSelectedHorizon('5-Day')}
@@ -194,10 +234,10 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded">
               5-Day Horizon
             </span>
-            <span className="text-[11px] text-slate-500">{summary.horizon5Day.dateRangeText}</span>
+            <span className="text-[10px] text-slate-500">{summary.horizon5Day.dateRangeText}</span>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
             <div>
@@ -221,6 +261,43 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
           </div>
         </div>
 
+        {/* 10-Day Card */}
+        <div
+          onClick={() => setSelectedHorizon('10-Day')}
+          className={`p-4 rounded-xl border cursor-pointer transition shadow-sm ${
+            selectedHorizon === '10-Day'
+              ? 'bg-indigo-50/80 border-indigo-500 ring-2 ring-indigo-500/20'
+              : 'bg-white border-slate-200 hover:border-indigo-300'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded">
+              10-Day Horizon
+            </span>
+            <span className="text-[10px] text-slate-500">{summary.horizon10Day.dateRangeText}</span>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <span className="text-slate-400 block text-[10px] uppercase">Expected Inflow</span>
+              <span className="font-bold text-emerald-600">{formatINR(summary.horizon10Day.totalInflow)}</span>
+            </div>
+            <div>
+              <span className="text-slate-400 block text-[10px] uppercase">Required Outflow</span>
+              <span className="font-bold text-rose-600">{formatINR(summary.horizon10Day.totalOutflow)}</span>
+            </div>
+          </div>
+          <div className="mt-3 pt-2 border-t border-slate-200/60 flex items-center justify-between">
+            <span className="text-xs font-medium text-slate-600">Net Position</span>
+            <span
+              className={`text-xs font-extrabold ${
+                summary.horizon10Day.netCashPosition >= 0 ? 'text-emerald-700' : 'text-rose-700'
+              }`}
+            >
+              {formatINR(summary.horizon10Day.netCashPosition)}
+            </span>
+          </div>
+        </div>
+
         {/* 15-Day Card */}
         <div
           onClick={() => setSelectedHorizon('15-Day')}
@@ -231,10 +308,10 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded">
               15-Day Horizon
             </span>
-            <span className="text-[11px] text-slate-500">{summary.horizon15Day.dateRangeText}</span>
+            <span className="text-[10px] text-slate-500">{summary.horizon15Day.dateRangeText}</span>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
             <div>
@@ -268,10 +345,10 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded">
-              Monthly (30-Day) Horizon
+            <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded">
+              Monthly Horizon
             </span>
-            <span className="text-[11px] text-slate-500">{summary.horizonMonthly.dateRangeText}</span>
+            <span className="text-[10px] text-slate-500">{summary.horizonMonthly.dateRangeText}</span>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
             <div>

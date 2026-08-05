@@ -44,7 +44,7 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
   // Payment Recording State inside Schedule Modal
   const [recordingMonth, setRecordingMonth] = useState<MonthlyScheduleRow | null>(null);
   const [lastPaymentRef, setLastPaymentRef] = useState('');
-  const [lastPaymentDate, setLastPaymentDate] = useState('2026-08-05');
+  const [lastPaymentDate, setLastPaymentDate] = useState('2026-04-01');
 
   // Add EMI state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -56,7 +56,7 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
   const [newRemainingBalance, setNewRemainingBalance] = useState(3500000);
   const [newMonthlyEmi, setNewMonthlyEmi] = useState(75000);
   const [newDueDay, setNewDueDay] = useState(5);
-  const [newNextDueDate, setNewNextDueDate] = useState('2026-08-05');
+  const [newNextDueDate, setNewNextDueDate] = useState('2026-04-01');
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,7 +72,7 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
       remainingBalance: Number(newRemainingBalance) || 500000,
       monthlyEmi: Number(newMonthlyEmi) || 25000,
       dueDayOfMonth: Number(newDueDay) || 5,
-      nextDueDate: newNextDueDate || '2026-08-05',
+      nextDueDate: newNextDueDate || '2026-04-01',
       status: 'Upcoming',
     };
 
