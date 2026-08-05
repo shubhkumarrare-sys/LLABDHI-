@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ComplianceItem } from '../types';
-import { formatINR, calculateDaysDiff } from '../utils/calculations';
+import { formatINR, calculateDaysDiff, getTodayStr } from '../utils/calculations';
 import {
   FileCheck2,
   AlertCircle,
@@ -32,7 +32,7 @@ export const ComplianceManager: React.FC<ComplianceManagerProps> = ({
 }) => {
   const [selectedCompliance, setSelectedCompliance] = useState<ComplianceItem | null>(null);
   const [arnChallanRef, setArnChallanRef] = useState('');
-  const [filingDate, setFilingDate] = useState('2026-07-30');
+  const [filingDate, setFilingDate] = useState(getTodayStr());
 
   // Add modal state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);

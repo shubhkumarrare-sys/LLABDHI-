@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { CreditorItem } from '../types';
-import { formatINR, calculateDaysDiff } from '../utils/calculations';
+import { formatINR, calculateDaysDiff, getTodayStr } from '../utils/calculations';
 import {
   Building2,
   Plus,
@@ -32,7 +32,7 @@ export const CreditorsManager: React.FC<CreditorsManagerProps> = ({
   // Payment Modal State
   const [selectedCreditor, setSelectedCreditor] = useState<CreditorItem | null>(null);
   const [arnRef, setArnRef] = useState('');
-  const [paymentDate, setPaymentDate] = useState('2026-07-30');
+  const [paymentDate, setPaymentDate] = useState(getTodayStr());
 
   // Add Creditor Modal State
   const [isAddOpen, setIsAddOpen] = useState(false);

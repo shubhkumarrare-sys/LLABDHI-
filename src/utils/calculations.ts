@@ -8,19 +8,28 @@ import {
   ClientOverdueGroup,
 } from '../types';
 
-// Baseline reference date: 2026-07-30
+export function getTodayStr(): string {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// Baseline reference date: Today's Date
 export const getBaseDate = (): Date => {
-  return new Date('2026-07-30T00:00:00');
+  return new Date();
 };
 
-export function calculateDaysDiff(targetDateStr: string, baseDateStr: string = '2026-07-30'): number {
+export function calculateDaysDiff(targetDateStr: string, baseDateStr: string = getTodayStr()): number {
+  if (!targetDateStr) return 0;
   const target = new Date(targetDateStr + 'T00:00:00');
   const base = new Date(baseDateStr + 'T00:00:00');
   const diffTime = target.getTime() - base.getTime();
   return Math.round(diffTime / (1000 * 3600 * 24));
 }
 
-export function formatDateRangeText(daysWindow: number, baseDateStr: string = '2026-07-30'): string {
+export function formatDateRangeText(daysWindow: number, baseDateStr: string = getTodayStr()): string {
   const base = new Date(baseDateStr + 'T00:00:00');
   const endDate = new Date(base.getTime() + daysWindow * 24 * 60 * 60 * 1000);
   
@@ -35,7 +44,7 @@ export function calculateCashFlowForHorizonDetails(
   compliance: ComplianceItem[],
   daysWindow: number,
   horizonLabel: string,
-  baseDateStr: string = '2026-07-30'
+  baseDateStr: string = getTodayStr()
 ): HorizonCashFlowDetails {
   const inflows = debtors.filter((d) => {
     if (d.status === 'Paid') return false;
@@ -91,7 +100,7 @@ export function calculate5DayCashFlow(
   creditors: CreditorItem[],
   emis: EmiItem[],
   compliance: ComplianceItem[],
-  baseDateStr: string = '2026-07-30'
+  baseDateStr: string = getTodayStr()
 ): CashFlowSummary {
   const horizon5Day = calculateCashFlowForHorizonDetails(debtors, creditors, emis, compliance, 5, '5-Day', baseDateStr);
   const horizon15Day = calculateCashFlowForHorizonDetails(debtors, creditors, emis, compliance, 15, '15-Day', baseDateStr);
@@ -120,7 +129,7 @@ export function calculate5DayCashFlow(
 
 export function groupOverdueDebtorsByClient(
   debtors: DebtorItem[],
-  baseDateStr: string = '2026-07-30'
+  baseDateStr: string = getTodayStr()
 ): ClientOverdueGroup[] {
   const overdueItems = debtors.filter((d) => d.status === 'Overdue');
   const groupMap = new Map<string, ClientOverdueGroup>();

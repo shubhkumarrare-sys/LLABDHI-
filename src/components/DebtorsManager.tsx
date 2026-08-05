@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { DebtorItem, ClientOverdueGroup } from '../types';
-import { groupOverdueDebtorsByClient, formatINR, calculateDaysDiff } from '../utils/calculations';
+import { groupOverdueDebtorsByClient, formatINR, calculateDaysDiff, getTodayStr } from '../utils/calculations';
 import {
   Search,
   Filter,
@@ -35,13 +35,13 @@ export const DebtorsManager: React.FC<DebtorsManagerProps> = ({
   // Modal States
   const [selectedItemForPayment, setSelectedItemForPayment] = useState<DebtorItem | null>(null);
   const [arnChallanInput, setArnChallanInput] = useState('');
-  const [paymentDateInput, setPaymentDateInput] = useState('2026-07-30');
+  const [paymentDateInput, setPaymentDateInput] = useState(getTodayStr());
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newInvoice, setNewInvoice] = useState<Partial<DebtorItem>>({
     clientEntity: '',
     invoiceRef: 'LL/2026-27/',
-    invoiceDate: '2026-07-30',
+    invoiceDate: getTodayStr(),
     dueDate: '2026-08-29',
     amount: 100000,
     status: 'Pending',
@@ -84,7 +84,7 @@ export const DebtorsManager: React.FC<DebtorsManagerProps> = ({
       id: `DEB-${Math.floor(100 + Math.random() * 900)}`,
       clientEntity: newInvoice.clientEntity || 'Entity Name',
       invoiceRef: newInvoice.invoiceRef || `LL/2026-27/${Math.floor(500 + Math.random() * 500)}`,
-      invoiceDate: newInvoice.invoiceDate || '2026-07-30',
+      invoiceDate: newInvoice.invoiceDate || getTodayStr(),
       dueDate: newInvoice.dueDate || '2026-08-30',
       amount: Number(newInvoice.amount),
       status: (newInvoice.status as any) || 'Pending',
