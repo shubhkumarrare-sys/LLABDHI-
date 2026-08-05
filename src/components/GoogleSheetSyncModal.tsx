@@ -334,18 +334,49 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
             fetchedResults['Compliance_Calendar'] ||
             fetchedResults['LLP Compliance'] ||
             [];
-          const newCompliance: ComplianceItem[] = rawComplianceRows.map((r: any, idx: number) => ({
-            id: getFieldVal(r, ['id', 'cmp_id', 'compliance_id']) || `CMP-${400 + idx}`,
-            title: getFieldVal(r, ['title', 'complianceName', 'compliance_name', 'name', 'particulars', 'type', 'head', 'task']) || 'Statutory Compliance',
-            period: getFieldVal(r, ['period', 'financial_period', 'fy', 'month', 'year']) || 'FY 2026-27',
-            dueDate: getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']) || '2026-08-20',
-            governingAuthority: (getFieldVal(r, ['governingAuthority', 'governing authority', 'authority', 'portal', 'dept', 'department']) as any) || 'GSTN Portal',
-            status: (getFieldVal(r, ['status', 'state', 'filing status']) as any) || 'Pending',
-            filingDate: getFieldVal(r, ['filingDate', 'filing date', 'filing_date', 'filed on']),
-            arnChallanRef: getFieldVal(r, ['arnChallanRef', 'arn challan ref', 'arn_challan_ref', 'arn', 'challan ref', 'ref']),
-            estimatedAmount: parseFloat(getFieldVal(r, ['estimatedAmount', 'estimated amount', 'estimated_amount', 'amount', 'tax liability', 'fees']).replace(/[^0-9.]/g, '')) || undefined,
-            responsibility: getFieldVal(r, ['responsibility', 'responsible', 'assigned to', 'person', 'consultant']),
-          }));
+          const newCompliance: ComplianceItem[] = rawComplianceRows
+            .map((r: any, idx: number) => {
+              const exactTitle =
+                extractComplianceTitle(r) ||
+                getFieldVal(r, [
+                  'title',
+                  'compliance title',
+                  'compliance_title',
+                  'complianceName',
+                  'compliance_name',
+                  'statutory compliance',
+                  'statutory_compliance',
+                  'statutory compliance title',
+                  'compliance',
+                  'compliance head',
+                  'statutory head',
+                  'tax head',
+                  'particulars',
+                  'title / return',
+                  'compliance / return',
+                  'compliance return',
+                  'name',
+                  'head',
+                  'task',
+                  'nature of payment',
+                  'compliance requirement',
+                  'description',
+                  'details',
+                ]);
+              return {
+                id: getFieldVal(r, ['id', 'cmp_id', 'compliance_id']) || `CMP-${400 + idx}`,
+                title: exactTitle || 'Statutory Compliance',
+                period: getFieldVal(r, ['period', 'financial_period', 'fy', 'month', 'year']) || 'FY 2026-27',
+                dueDate: getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']) || '2026-08-20',
+                governingAuthority: (getFieldVal(r, ['governingAuthority', 'governing authority', 'authority', 'portal', 'dept', 'department']) as any) || 'GSTN Portal',
+                status: (getFieldVal(r, ['status', 'state', 'filing status']) as any) || 'Pending',
+                filingDate: getFieldVal(r, ['filingDate', 'filing date', 'filing_date', 'filed on']),
+                arnChallanRef: getFieldVal(r, ['arnChallanRef', 'arn challan ref', 'arn_challan_ref', 'arn', 'challan ref', 'ref']),
+                estimatedAmount: parseFloat((getFieldVal(r, ['estimatedAmount', 'estimated amount', 'estimated_amount', 'amount', 'tax liability', 'fees']) || '0').replace(/[^0-9.]/g, '')) || undefined,
+                responsibility: getFieldVal(r, ['responsibility', 'responsible', 'assigned to', 'person', 'consultant']),
+              };
+            })
+            .filter((c: ComplianceItem) => c.title && c.title.trim() !== '' && c.title !== 'Statutory Compliance');
 
           const previewData = {
             debtors: newDebtors.length > 0 ? newDebtors : currentData.debtors,
@@ -505,18 +536,49 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
             data: { emis: newEmis },
           });
         } else if (targetCategory === 'compliance') {
-          const newCompliance: ComplianceItem[] = rows.map((r, idx) => ({
-            id: getFieldVal(r, ['id', 'cmp_id', 'compliance_id']) || `CMP-${500 + idx}`,
-            title: getFieldVal(r, ['title', 'complianceName', 'compliance_name', 'name', 'particulars', 'type', 'head', 'task']) || 'Statutory Compliance',
-            period: getFieldVal(r, ['period', 'financial_period', 'fy', 'month', 'year']) || 'FY 2026-27',
-            dueDate: getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']) || '2026-08-20',
-            governingAuthority: (getFieldVal(r, ['governingAuthority', 'governing authority', 'authority', 'portal', 'dept', 'department']) as any) || 'GSTN Portal',
-            status: (getFieldVal(r, ['status', 'state', 'filing status']) as any) || 'Pending',
-            filingDate: getFieldVal(r, ['filingDate', 'filing date', 'filing_date', 'filed on']),
-            arnChallanRef: getFieldVal(r, ['arnChallanRef', 'arn challan ref', 'arn_challan_ref', 'arn', 'challan ref', 'ref']),
-            estimatedAmount: parseFloat(getFieldVal(r, ['estimatedAmount', 'estimated amount', 'estimated_amount', 'amount', 'tax liability', 'fees']).replace(/[^0-9.]/g, '')) || undefined,
-            responsibility: getFieldVal(r, ['responsibility', 'responsible', 'assigned to', 'person', 'consultant']),
-          }));
+          const newCompliance: ComplianceItem[] = rows
+            .map((r, idx) => {
+              const exactTitle =
+                extractComplianceTitle(r) ||
+                getFieldVal(r, [
+                  'title',
+                  'compliance title',
+                  'compliance_title',
+                  'complianceName',
+                  'compliance_name',
+                  'statutory compliance',
+                  'statutory_compliance',
+                  'statutory compliance title',
+                  'compliance',
+                  'compliance head',
+                  'statutory head',
+                  'tax head',
+                  'particulars',
+                  'title / return',
+                  'compliance / return',
+                  'compliance return',
+                  'name',
+                  'head',
+                  'task',
+                  'nature of payment',
+                  'compliance requirement',
+                  'description',
+                  'details',
+                ]);
+              return {
+                id: getFieldVal(r, ['id', 'cmp_id', 'compliance_id']) || `CMP-${500 + idx}`,
+                title: exactTitle || 'Statutory Compliance',
+                period: getFieldVal(r, ['period', 'financial_period', 'fy', 'month', 'year']) || 'FY 2026-27',
+                dueDate: getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']) || '2026-08-20',
+                governingAuthority: (getFieldVal(r, ['governingAuthority', 'governing authority', 'authority', 'portal', 'dept', 'department']) as any) || 'GSTN Portal',
+                status: (getFieldVal(r, ['status', 'state', 'filing status']) as any) || 'Pending',
+                filingDate: getFieldVal(r, ['filingDate', 'filing date', 'filing_date', 'filed on']),
+                arnChallanRef: getFieldVal(r, ['arnChallanRef', 'arn challan ref', 'arn_challan_ref', 'arn', 'challan ref', 'ref']),
+                estimatedAmount: parseFloat((getFieldVal(r, ['estimatedAmount', 'estimated amount', 'estimated_amount', 'amount', 'tax liability', 'fees']) || '0').replace(/[^0-9.]/g, '')) || undefined,
+                responsibility: getFieldVal(r, ['responsibility', 'responsible', 'assigned to', 'person', 'consultant']),
+              };
+            })
+            .filter((c: ComplianceItem) => c.title && c.title.trim() !== '' && c.title !== 'Statutory Compliance');
 
           setParsedPreview({
             debtorsCount: 0,
