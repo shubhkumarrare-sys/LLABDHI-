@@ -79,6 +79,35 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
     return '';
   };
 
+  // Date normalizer for M/D/YYYY (e.g. 7/11/2024 -> 2024-07-11)
+  const normalizeSheetDate = (raw: string): string => {
+    if (!raw || typeof raw !== 'string') return '';
+    const trimmed = raw.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+
+    const parts = trimmed.split(/[/.-]/);
+    if (parts.length === 3) {
+      const p1 = parseInt(parts[0], 10);
+      const p2 = parseInt(parts[1], 10);
+      const p3 = parseInt(parts[2], 10);
+
+      if (p3 > 1000) {
+        // MM/DD/YYYY format from Google Sheets
+        const year = p3;
+        const month = String(p1).padStart(2, '0');
+        const day = String(p2).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      } else if (p1 > 1000) {
+        // YYYY/MM/DD
+        const year = p1;
+        const month = String(p2).padStart(2, '0');
+        const day = String(p3).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+    }
+    return trimmed;
+  };
+
   const extractDebtorName = (r: any): string => {
     let val = getFieldVal(r, [
       'clientEntity',
@@ -86,6 +115,10 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
       'client_entity',
       'client',
       'client name',
+      'entity / name',
+      'entity/name',
+      'entity',
+      'entity name',
       'debtor',
       'debtors',
       'debtor name',
@@ -96,8 +129,6 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
       'particulars',
       'company',
       'name',
-      'entity',
-      'entity name',
     ]);
     if (val) {
       val = val.replace(/^(client|vendor|supplier|creditor|debtor)\s*[:|-]?\s*/i, '').trim();
@@ -271,18 +302,39 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
 
           // Transform fetched CSV rows to typed objects
           const newDebtors: DebtorItem[] = (fetchedResults['Debtors'] || [])
-            .map((r: any, idx: number) => ({
-              id: getFieldVal(r, ['id', 'deb_id', 'debtor_id', 'invoice_id']) || `DEB-${200 + idx}`,
-              clientEntity: extractDebtorName(r),
-              invoiceRef: getFieldVal(r, ['invoiceRef', 'invoice ref', 'invoice_ref', 'invoice', 'inv no', 'bill ref']) || `INV-${100 + idx}`,
-              invoiceDate: getFieldVal(r, ['invoiceDate', 'invoice date', 'invoice_date', 'date', 'inv date']) || '2026-07-01',
-              dueDate: getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']) || '2026-08-01',
-              amount: parseFloat(getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount']).replace(/[^0-9.]/g, '')) || 100000,
-              status: (getFieldVal(r, ['status', 'payment status', 'state']) as any) || 'Pending',
-              contactEmail: getFieldVal(r, ['contactEmail', 'contact email', 'email', 'mail']),
-              contactPerson: getFieldVal(r, ['contactPerson', 'contact person', 'contact', 'person']),
-              notes: getFieldVal(r, ['notes', 'remarks', 'description', 'details']),
-            }))
+            .map((r: any, idx: number) => {
+              const rawDueDate = getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']);
+              const normalizedDueDate = normalizeSheetDate(rawDueDate) || '2026-08-01';
+              const rawInvDate = getFieldVal(r, ['invoiceDate', 'invoice date', 'invoice_date', 'date', 'inv date']);
+              const normalizedInvDate = normalizeSheetDate(rawInvDate) || '2026-07-01';
+              
+              const rawStatus = getFieldVal(r, ['status', 'payment status', 'state']).toLowerCase();
+              const paymentDateVal = getFieldVal(r, ['filing / payment date', 'filing/payment date', 'payment date', 'filing date', 'payment_date']);
+              
+              let computedStatus: 'Pending' | 'Overdue' | 'Paid' = 'Pending';
+              if (rawStatus === 'paid' || rawStatus === 'true' || rawStatus === 'checked' || paymentDateVal.trim() !== '') {
+                computedStatus = 'Paid';
+              } else if (normalizedDueDate < '2026-08-05') {
+                computedStatus = 'Overdue';
+              }
+
+              const rawAmount = getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount', 'total amount (₹)', 'total amount (\u20b9)']);
+              const parsedAmt = parseFloat(rawAmount.replace(/[^0-9.]/g, '')) || 0;
+
+              return {
+                id: getFieldVal(r, ['id', 'deb_id', 'debtor_id', 'invoice_id', 'sr. no', 'sr no']) || `DEB-${200 + idx}`,
+                clientEntity: extractDebtorName(r),
+                invoiceRef: getFieldVal(r, ['invoiceRef', 'invoice ref', 'invoice_ref', 'invoice / reference no', 'invoice/reference no', 'reference no', 'invoice', 'inv no', 'bill ref']) || `INV-${100 + idx}`,
+                invoiceDate: normalizedInvDate,
+                dueDate: normalizedDueDate,
+                amount: parsedAmt,
+                status: computedStatus,
+                paymentDate: paymentDateVal || undefined,
+                contactEmail: getFieldVal(r, ['contactEmail', 'contact email', 'email', 'mail']),
+                contactPerson: getFieldVal(r, ['contactPerson', 'contact person', 'contact', 'person']),
+                notes: getFieldVal(r, ['notes', 'remarks', 'description', 'details']),
+              };
+            })
             .filter((d: DebtorItem) => {
               if (!d || !d.clientEntity || d.clientEntity.trim() === '') return false;
               const match = String(d.id).trim().toUpperCase().match(/^DEB-(\d+)$/);
@@ -459,18 +511,39 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
 
         if (targetCategory === 'debtors') {
           const newDebtors: DebtorItem[] = rows
-            .map((r, idx) => ({
-              id: getFieldVal(r, ['id', 'deb_id', 'debtor_id', 'invoice_id']) || `DEB-${500 + idx}`,
-              clientEntity: extractDebtorName(r),
-              invoiceRef: getFieldVal(r, ['invoiceRef', 'invoice ref', 'invoice_ref', 'invoice', 'inv no', 'bill ref']) || `INV-${100 + idx}`,
-              invoiceDate: getFieldVal(r, ['invoiceDate', 'invoice date', 'invoice_date', 'date', 'inv date']) || '2026-07-01',
-              dueDate: getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']) || '2026-08-01',
-              amount: parseFloat(getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount']).replace(/[^0-9.]/g, '')) || 100000,
-              status: (getFieldVal(r, ['status', 'payment status', 'state']) as any) || 'Pending',
-              contactEmail: getFieldVal(r, ['contactEmail', 'contact email', 'email', 'mail']),
-              contactPerson: getFieldVal(r, ['contactPerson', 'contact person', 'contact', 'person']),
-              notes: getFieldVal(r, ['notes', 'remarks', 'description', 'details']),
-            }))
+            .map((r, idx) => {
+              const rawDueDate = getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']);
+              const normalizedDueDate = normalizeSheetDate(rawDueDate) || '2026-08-01';
+              const rawInvDate = getFieldVal(r, ['invoiceDate', 'invoice date', 'invoice_date', 'date', 'inv date']);
+              const normalizedInvDate = normalizeSheetDate(rawInvDate) || '2026-07-01';
+              
+              const rawStatus = getFieldVal(r, ['status', 'payment status', 'state']).toLowerCase();
+              const paymentDateVal = getFieldVal(r, ['filing / payment date', 'filing/payment date', 'payment date', 'filing date', 'payment_date']);
+              
+              let computedStatus: 'Pending' | 'Overdue' | 'Paid' = 'Pending';
+              if (rawStatus === 'paid' || rawStatus === 'true' || rawStatus === 'checked' || paymentDateVal.trim() !== '') {
+                computedStatus = 'Paid';
+              } else if (normalizedDueDate < '2026-08-05') {
+                computedStatus = 'Overdue';
+              }
+
+              const rawAmount = getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount', 'total amount (₹)', 'total amount (\u20b9)']);
+              const parsedAmt = parseFloat(rawAmount.replace(/[^0-9.]/g, '')) || 0;
+
+              return {
+                id: getFieldVal(r, ['id', 'deb_id', 'debtor_id', 'invoice_id', 'sr. no', 'sr no']) || `DEB-${500 + idx}`,
+                clientEntity: extractDebtorName(r),
+                invoiceRef: getFieldVal(r, ['invoiceRef', 'invoice ref', 'invoice_ref', 'invoice / reference no', 'invoice/reference no', 'reference no', 'invoice', 'inv no', 'bill ref']) || `INV-${100 + idx}`,
+                invoiceDate: normalizedInvDate,
+                dueDate: normalizedDueDate,
+                amount: parsedAmt,
+                status: computedStatus,
+                paymentDate: paymentDateVal || undefined,
+                contactEmail: getFieldVal(r, ['contactEmail', 'contact email', 'email', 'mail']),
+                contactPerson: getFieldVal(r, ['contactPerson', 'contact person', 'contact', 'person']),
+                notes: getFieldVal(r, ['notes', 'remarks', 'description', 'details']),
+              };
+            })
             .filter((d: DebtorItem) => {
               if (!d || !d.clientEntity || d.clientEntity.trim() === '') return false;
               const match = String(d.id).trim().toUpperCase().match(/^DEB-(\d+)$/);

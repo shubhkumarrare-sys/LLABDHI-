@@ -60,7 +60,7 @@ export function calculateCashFlowForHorizonDetails(
 
   const isInRange = (dueDateStr: string) => {
     if (!dueDateStr) return false;
-    return dueDateStr >= startDateStr && dueDateStr <= endDateStr;
+    return dueDateStr <= endDateStr;
   };
 
   const inflows = debtors.filter((d) => {
