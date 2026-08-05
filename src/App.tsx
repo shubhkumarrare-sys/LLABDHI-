@@ -33,6 +33,7 @@ import {
   INITIAL_EMAIL_LOGS,
   INITIAL_GST_PAYABLE,
 } from './data/initialData';
+import { deduplicateEmis } from './utils/calculations';
 
 import { Sparkles, X, Copy, Check, Send, Mail } from 'lucide-react';
 
@@ -99,7 +100,8 @@ export default function App() {
   });
   const [emis, setEmis] = useState<EmiItem[]>(() => {
     const saved = localStorage.getItem('llabdhi_emis_v2');
-    return saved ? JSON.parse(saved) : INITIAL_EMIS;
+    const list = saved ? JSON.parse(saved) : INITIAL_EMIS;
+    return deduplicateEmis(list);
   });
   const [compliance, setCompliance] = useState<ComplianceItem[]>(() => {
     const saved = localStorage.getItem('llabdhi_compliance_v2');
@@ -167,8 +169,9 @@ export default function App() {
       localStorage.setItem('llabdhi_creditors_v5', JSON.stringify(filteredCreditors));
     }
     if (newData.emis) {
-      setEmis(newData.emis);
-      localStorage.setItem('llabdhi_emis_v2', JSON.stringify(newData.emis));
+      const cleanEmis = deduplicateEmis(newData.emis);
+      setEmis(cleanEmis);
+      localStorage.setItem('llabdhi_emis_v2', JSON.stringify(cleanEmis));
     }
     if (newData.compliance) {
       setCompliance(newData.compliance);

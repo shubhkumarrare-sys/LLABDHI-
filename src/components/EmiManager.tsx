@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { EmiItem } from '../types';
-import { formatINR, calculateDaysDiff } from '../utils/calculations';
+import { formatINR, calculateDaysDiff, deduplicateEmis } from '../utils/calculations';
 import {
   Car,
   Calendar,
@@ -113,47 +113,64 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
     setLastPaymentRef('');
   };
 
-  // Helper function to generate 12-month schedule for a loan
-  const generate12MonthSchedule = (item: EmiItem): MonthlyScheduleRow[] => {
-    const rows: MonthlyScheduleRow[] = [];
-    const baseDueDate = new Date(item.nextDueDate || '2026-08-05');
-    const day = item.dueDayOfMonth || baseDueDate.getDate() || 5;
+  // Deduplicate EMIs so each loan facility appears exactly ONCE
+  const cleanEmis = deduplicateEmis(emis);
 
-    // Past month (Jul 2026)
-    if (item.lastPaymentDate || item.lastPaymentRef) {
+  // Schedule Filter State inside Modal
+  const [scheduleFilter, setScheduleFilter] = useState<'all' | 'next12' | 'upcoming' | 'paid'>('all');
+
+  // Helper function to generate full repayment schedule for a loan facility
+  const generateFullLoanSchedule = (item: EmiItem): MonthlyScheduleRow[] => {
+    const rows: MonthlyScheduleRow[] = [];
+    const baseDueDate = new Date(item.nextDueDate || '2026-08-01');
+    const day = item.dueDayOfMonth || baseDueDate.getDate() || 1;
+
+    const monthlyEmi = item.monthlyEmi || 100000;
+    const totalValue = item.totalLoanValue || 5000000;
+    const remainingVal = item.remainingBalance || 2500000;
+
+    // Calculate tenure in months
+    const totalMonths = Math.max(12, Math.min(120, Math.ceil(totalValue / monthlyEmi)));
+    const remainingMonths = Math.max(1, Math.min(totalMonths, Math.ceil(remainingVal / monthlyEmi)));
+    const paidMonthsCount = Math.max(0, totalMonths - remainingMonths);
+
+    // 1. Paid installments in past history
+    for (let p = paidMonthsCount; p >= 1; p--) {
       const pastDate = new Date(baseDueDate);
-      pastDate.setMonth(pastDate.getMonth() - 1);
+      pastDate.setMonth(pastDate.getMonth() - p);
       pastDate.setDate(day);
       const mName = pastDate.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+      const instNo = paidMonthsCount - p + 1;
+
       rows.push({
-        monthIndex: 1,
+        monthIndex: instNo,
         monthName: mName,
         dueDate: pastDate.toISOString().substring(0, 10),
-        amount: item.monthlyEmi,
+        amount: monthlyEmi,
         status: 'Paid',
-        paymentRef: item.lastPaymentRef || 'ACH/ICICI/DIRECT-DEBIT',
-        paymentDate: item.lastPaymentDate || pastDate.toISOString().substring(0, 10),
+        paymentRef: item.lastPaymentRef || `ACH/${(item.lenderBank || 'BANK').split(' ')[0].toUpperCase()}/PAID-${1000 + instNo}`,
+        paymentDate: pastDate.toISOString().substring(0, 10),
       });
     }
 
-    const startIdx = rows.length > 0 ? 2 : 1;
+    // 2. Upcoming / Current installments
+    for (let u = 0; u < remainingMonths; u++) {
+      const futureDate = new Date(baseDueDate);
+      futureDate.setMonth(futureDate.getMonth() + u);
+      futureDate.setDate(day);
 
-    for (let i = 0; i < 12; i++) {
-      const d = new Date(baseDueDate);
-      d.setMonth(d.getMonth() + i);
-      d.setDate(day);
+      const mName = futureDate.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+      const dateStr = futureDate.toISOString().substring(0, 10);
+      const instNo = paidMonthsCount + u + 1;
 
-      const mName = d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
-      const dateStr = d.toISOString().substring(0, 10);
-
-      const isFirst = i === 0;
+      const isFirst = u === 0;
       const isPaid = isFirst && item.status === 'Paid';
 
       rows.push({
-        monthIndex: startIdx + i,
+        monthIndex: instNo,
         monthName: mName,
         dueDate: dateStr,
-        amount: item.monthlyEmi,
+        amount: monthlyEmi,
         status: isPaid ? 'Paid' : 'Upcoming',
         paymentRef: isPaid ? (item.lastPaymentRef || 'ACH/BANK-REF') : undefined,
         paymentDate: isPaid ? (item.lastPaymentDate || dateStr) : undefined,
@@ -163,9 +180,9 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
     return rows;
   };
 
-  const totalLoanValue = emis.reduce((sum, e) => sum + e.totalLoanValue, 0);
-  const totalRemaining = emis.reduce((sum, e) => sum + e.remainingBalance, 0);
-  const totalMonthlyEmi = emis.reduce((sum, e) => sum + e.monthlyEmi, 0);
+  const totalLoanValue = cleanEmis.reduce((sum, e) => sum + e.totalLoanValue, 0);
+  const totalRemaining = cleanEmis.reduce((sum, e) => sum + e.remainingBalance, 0);
+  const totalMonthlyEmi = cleanEmis.reduce((sum, e) => sum + e.monthlyEmi, 0);
 
   return (
     <div className="space-y-6">
@@ -211,14 +228,17 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
 
       {/* MAIN EMI LOANS LIST - CLEAN & CONCISE */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {emis.map((item) => {
+        {cleanEmis.map((item) => {
           const daysToDue = calculateDaysDiff(item.nextDueDate);
           const isPaid = item.status === 'Paid';
 
           return (
             <div
               key={item.id}
-              onClick={() => setActiveScheduleEmi(item)}
+              onClick={() => {
+                setActiveScheduleEmi(item);
+                setScheduleFilter('all');
+              }}
               className="bg-white rounded-2xl border border-slate-200 hover:border-indigo-400 hover:shadow-md transition cursor-pointer flex flex-col justify-between overflow-hidden group"
             >
               <div className="p-5 space-y-4">
@@ -282,7 +302,7 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
               <div className="px-5 py-3 bg-gradient-to-r from-slate-50 to-indigo-50/50 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-indigo-700 group-hover:bg-indigo-600 group-hover:text-white transition">
                 <span className="flex items-center space-x-1.5">
                   <Calendar className="w-3.5 h-3.5" />
-                  <span>Click to view Month-Wise Schedule</span>
+                  <span>Click to view Entire Repayment Schedule</span>
                 </span>
                 <ChevronRight className="w-4 h-4 transform group-hover:translate-x-1 transition" />
               </div>
@@ -292,195 +312,267 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
       </div>
 
       {/* MONTH-WISE SCHEDULE MODAL */}
-      {activeScheduleEmi && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-3xl w-full p-6 space-y-5 my-8 max-h-[90vh] flex flex-col">
-            {/* Modal Header */}
-            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
-              <div className="flex items-center space-x-3">
-                <div className="p-3 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100">
-                  <Car className="w-6 h-6" />
+      {activeScheduleEmi && (() => {
+        const fullSchedule = generateFullLoanSchedule(activeScheduleEmi);
+        const paidCount = fullSchedule.filter((r) => r.status === 'Paid').length;
+        const upcomingCount = fullSchedule.filter((r) => r.status === 'Upcoming').length;
+
+        const filteredSchedule = fullSchedule.filter((r) => {
+          if (scheduleFilter === 'paid') return r.status === 'Paid';
+          if (scheduleFilter === 'upcoming') return r.status === 'Upcoming';
+          if (scheduleFilter === 'next12') {
+            const next12Start = fullSchedule.findIndex((x) => x.status === 'Upcoming');
+            const startIdx = next12Start >= 0 ? Math.max(0, next12Start - 1) : 0;
+            const itemIdx = fullSchedule.indexOf(r);
+            return itemIdx >= startIdx && itemIdx < startIdx + 12;
+          }
+          return true; // 'all'
+        });
+
+        return (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-4xl w-full p-6 space-y-5 my-8 max-h-[90vh] flex flex-col">
+              {/* Modal Header */}
+              <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+                <div className="flex items-center space-x-3">
+                  <div className="p-3 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100">
+                    <Car className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <span className="px-2.5 py-0.5 rounded-md bg-indigo-100 text-indigo-800 text-[10px] font-extrabold uppercase">
+                      {activeScheduleEmi.lenderBank}
+                    </span>
+                    <h2 className="text-lg font-extrabold text-slate-900 mt-1">
+                      {activeScheduleEmi.loanName}
+                    </h2>
+                    <p className="text-xs text-slate-500">
+                      {activeScheduleEmi.vehicleModel} • Account: <span className="font-mono text-slate-700 font-bold">{activeScheduleEmi.accountNo}</span>
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setActiveScheduleEmi(null);
+                    setRecordingMonth(null);
+                  }}
+                  className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Quick Loan KPI Bar */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Sanctioned Loan</span>
+                  <span className="text-sm font-extrabold text-slate-800">{formatINR(activeScheduleEmi.totalLoanValue)}</span>
                 </div>
                 <div>
-                  <span className="px-2.5 py-0.5 rounded-md bg-indigo-100 text-indigo-800 text-[10px] font-extrabold uppercase">
-                    {activeScheduleEmi.lenderBank}
-                  </span>
-                  <h2 className="text-lg font-extrabold text-slate-900 mt-1">
-                    {activeScheduleEmi.loanName}
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    {activeScheduleEmi.vehicleModel} • Account: <span className="font-mono text-slate-700 font-bold">{activeScheduleEmi.accountNo}</span>
-                  </p>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Remaining Principal</span>
+                  <span className="text-sm font-extrabold text-amber-700">{formatINR(activeScheduleEmi.remainingBalance)}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Monthly EMI</span>
+                  <span className="text-sm font-extrabold text-rose-600">{formatINR(activeScheduleEmi.monthlyEmi)}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Total Tenure</span>
+                  <span className="text-sm font-extrabold text-indigo-700">{fullSchedule.length} Months</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Tenure Progress</span>
+                  <span className="text-xs font-bold text-emerald-700">{paidCount} Paid • {upcomingCount} Left</span>
                 </div>
               </div>
 
-              <button
-                onClick={() => {
-                  setActiveScheduleEmi(null);
-                  setRecordingMonth(null);
-                }}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Quick Loan KPI Bar */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs">
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase block">Sanctioned Loan</span>
-                <span className="text-sm font-extrabold text-slate-800">{formatINR(activeScheduleEmi.totalLoanValue)}</span>
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase block">Remaining Principal</span>
-                <span className="text-sm font-extrabold text-amber-700">{formatINR(activeScheduleEmi.remainingBalance)}</span>
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase block">Monthly EMI</span>
-                <span className="text-sm font-extrabold text-rose-600">{formatINR(activeScheduleEmi.monthlyEmi)}</span>
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase block">Next Installment</span>
-                <span className="text-sm font-extrabold text-slate-800">{activeScheduleEmi.nextDueDate}</span>
-              </div>
-            </div>
-
-            {/* RECORD PAYMENT SUB-FORM IF CLICKED ON A MONTH */}
-            {recordingMonth && (
-              <div className="p-4 rounded-xl bg-amber-50/80 border border-amber-200 space-y-3">
-                <div className="flex items-center justify-between border-b border-amber-200/60 pb-2">
-                  <div className="flex items-center space-x-2">
-                    <CreditCard className="w-4 h-4 text-amber-700" />
-                    <span className="font-bold text-slate-900 text-xs">
-                      Record Payment for {recordingMonth.monthName} ({formatINR(recordingMonth.amount)})
-                    </span>
-                  </div>
+              {/* SCHEDULE FILTER TABS */}
+              <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-2">
+                <div className="flex items-center space-x-1.5 text-xs font-bold">
                   <button
-                    onClick={() => setRecordingMonth(null)}
-                    className="text-amber-800 hover:text-amber-950 text-xs font-bold"
+                    onClick={() => setScheduleFilter('all')}
+                    className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                      scheduleFilter === 'all'
+                        ? 'bg-indigo-600 text-white shadow'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
                   >
-                    Cancel
+                    Full Schedule ({fullSchedule.length})
+                  </button>
+                  <button
+                    onClick={() => setScheduleFilter('next12')}
+                    className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                      scheduleFilter === 'next12'
+                        ? 'bg-indigo-600 text-white shadow'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    Next 12 Months
+                  </button>
+                  <button
+                    onClick={() => setScheduleFilter('upcoming')}
+                    className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                      scheduleFilter === 'upcoming'
+                        ? 'bg-amber-600 text-white shadow'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    Upcoming ({upcomingCount})
+                  </button>
+                  <button
+                    onClick={() => setScheduleFilter('paid')}
+                    className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                      scheduleFilter === 'paid'
+                        ? 'bg-emerald-600 text-white shadow'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    Paid History ({paidCount})
                   </button>
                 </div>
 
-                <form onSubmit={handleRecordPaymentSubmit} className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">
-                      Bank Ref / UTR No. *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. ACH/ICICI/AUG01/8832"
-                      value={lastPaymentRef}
-                      onChange={(e) => setLastPaymentRef(e.target.value)}
-                      className="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white text-xs font-semibold"
-                    />
-                  </div>
+                <div className="text-[11px] text-slate-500 font-medium">
+                  Showing <span className="font-bold text-slate-900">{filteredSchedule.length}</span> installments
+                </div>
+              </div>
 
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">
-                      Payment Date *
-                    </label>
-                    <input
-                      type="date"
-                      required
-                      value={lastPaymentDate}
-                      onChange={(e) => setLastPaymentDate(e.target.value)}
-                      className="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white text-xs font-semibold"
-                    />
-                  </div>
-
-                  <div className="flex items-end">
+              {/* RECORD PAYMENT SUB-FORM IF CLICKED ON A MONTH */}
+              {recordingMonth && (
+                <div className="p-4 rounded-xl bg-amber-50/80 border border-amber-200 space-y-3">
+                  <div className="flex items-center justify-between border-b border-amber-200/60 pb-2">
+                    <div className="flex items-center space-x-2">
+                      <CreditCard className="w-4 h-4 text-amber-700" />
+                      <span className="font-bold text-slate-900 text-xs">
+                        Record Payment for Inst #{recordingMonth.monthIndex} ({recordingMonth.monthName} - {formatINR(recordingMonth.amount)})
+                      </span>
+                    </div>
                     <button
-                      type="submit"
-                      className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow transition cursor-pointer text-xs flex items-center justify-center space-x-1"
+                      onClick={() => setRecordingMonth(null)}
+                      className="text-amber-800 hover:text-amber-950 text-xs font-bold"
                     >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Confirm & Record</span>
+                      Cancel
                     </button>
                   </div>
-                </form>
-              </div>
-            )}
 
-            {/* MONTH-WISE REPAYMENT SCHEDULE TABLE */}
-            <div className="overflow-y-auto flex-1 rounded-xl border border-slate-200">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-slate-100/80 text-slate-600 font-extrabold uppercase text-[10px] tracking-wider sticky top-0 border-b border-slate-200">
-                    <th className="p-3">Inst #</th>
-                    <th className="p-3">Month</th>
-                    <th className="p-3">Due Date</th>
-                    <th className="p-3 text-right">EMI Amount</th>
-                    <th className="p-3 text-center">Status</th>
-                    <th className="p-3 text-right">Payment Ref / Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
-                  {generate12MonthSchedule(activeScheduleEmi).map((row) => (
-                    <tr
-                      key={row.monthIndex + row.dueDate}
-                      className={row.status === 'Paid' ? 'bg-emerald-50/30' : 'hover:bg-slate-50'}
-                    >
-                      <td className="p-3 font-mono font-bold text-slate-500">#{row.monthIndex}</td>
-                      <td className="p-3 font-extrabold text-slate-800">{row.monthName}</td>
-                      <td className="p-3 text-slate-600 font-mono">{row.dueDate}</td>
-                      <td className="p-3 text-right font-extrabold text-rose-600">
-                        {formatINR(row.amount)}
-                      </td>
-                      <td className="p-3 text-center">
-                        {row.status === 'Paid' ? (
-                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold border border-emerald-200 inline-flex items-center space-x-1">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                            <span>Paid</span>
-                          </span>
-                        ) : (
-                          <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-extrabold border border-amber-200 inline-flex items-center space-x-1">
-                            <Clock className="w-3 h-3 text-amber-600" />
-                            <span>Upcoming</span>
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-3 text-right font-mono text-[11px]">
-                        {row.status === 'Paid' ? (
-                          <span className="text-emerald-800 font-semibold bg-emerald-100/60 px-2 py-1 rounded">
-                            {row.paymentRef || 'ACH/DIRECT-DEBIT'}
-                          </span>
-                        ) : (
-                          <button
-                            onClick={() => {
-                              setRecordingMonth(row);
-                              setLastPaymentDate(row.dueDate);
-                              setLastPaymentRef(`ACH/ICICI/INP-${Math.floor(1000 + Math.random() * 9000)}`);
-                            }}
-                            className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[11px] transition cursor-pointer shadow-xs"
-                          >
-                            Record Payment
-                          </button>
-                        )}
-                      </td>
+                  <form onSubmit={handleRecordPaymentSubmit} className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">
+                        Bank Ref / UTR No. *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. ACH/ICICI/AUG01/8832"
+                        value={lastPaymentRef}
+                        onChange={(e) => setLastPaymentRef(e.target.value)}
+                        className="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white text-xs font-semibold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">
+                        Payment Date *
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={lastPaymentDate}
+                        onChange={(e) => setLastPaymentDate(e.target.value)}
+                        className="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white text-xs font-semibold"
+                      />
+                    </div>
+
+                    <div className="flex items-end">
+                      <button
+                        type="submit"
+                        className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow transition cursor-pointer text-xs flex items-center justify-center space-x-1"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Confirm & Record</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {/* MONTH-WISE REPAYMENT SCHEDULE TABLE */}
+              <div className="overflow-y-auto flex-1 rounded-xl border border-slate-200 max-h-[380px]">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-100/80 text-slate-600 font-extrabold uppercase text-[10px] tracking-wider sticky top-0 border-b border-slate-200 z-10">
+                      <th className="p-3">Inst #</th>
+                      <th className="p-3">Month</th>
+                      <th className="p-3">Due Date</th>
+                      <th className="p-3 text-right">EMI Outflow</th>
+                      <th className="p-3 text-center">Status</th>
+                      <th className="p-3 text-right">Payment Ref / Action</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {filteredSchedule.map((row) => (
+                      <tr
+                        key={row.monthIndex + row.dueDate}
+                        className={row.status === 'Paid' ? 'bg-emerald-50/30' : 'hover:bg-slate-50'}
+                      >
+                        <td className="p-3 font-mono font-bold text-slate-500">#{row.monthIndex}</td>
+                        <td className="p-3 font-extrabold text-slate-800">{row.monthName}</td>
+                        <td className="p-3 text-slate-600 font-mono">{row.dueDate}</td>
+                        <td className="p-3 text-right font-extrabold text-rose-600">
+                          {formatINR(row.amount)}
+                        </td>
+                        <td className="p-3 text-center">
+                          {row.status === 'Paid' ? (
+                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold border border-emerald-200 inline-flex items-center space-x-1">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              <span>Paid</span>
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-extrabold border border-amber-200 inline-flex items-center space-x-1">
+                              <Clock className="w-3 h-3 text-amber-600" />
+                              <span>Upcoming</span>
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3 text-right font-mono text-[11px]">
+                          {row.status === 'Paid' ? (
+                            <span className="text-emerald-800 font-semibold bg-emerald-100/60 px-2 py-1 rounded">
+                              {row.paymentRef || 'ACH/DIRECT-DEBIT'}
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setRecordingMonth(row);
+                                setLastPaymentDate(row.dueDate);
+                                setLastPaymentRef(`ACH/ICICI/INP-${Math.floor(1000 + Math.random() * 9000)}`);
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[11px] transition cursor-pointer shadow-xs"
+                            >
+                              Record Payment
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
-            {/* Modal Footer */}
-            <div className="flex justify-end pt-2 border-t border-slate-100">
-              <button
-                onClick={() => {
-                  setActiveScheduleEmi(null);
-                  setRecordingMonth(null);
-                }}
-                className="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs cursor-pointer shadow"
-              >
-                Close Schedule
-              </button>
+              {/* Modal Footer */}
+              <div className="flex justify-end pt-2 border-t border-slate-100">
+                <button
+                  onClick={() => {
+                    setActiveScheduleEmi(null);
+                    setRecordingMonth(null);
+                  }}
+                  className="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs cursor-pointer shadow"
+                >
+                  Close Schedule
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ADD NEW LOAN / PARTY MODAL */}
       {isAddModalOpen && (

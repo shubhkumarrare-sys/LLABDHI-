@@ -161,3 +161,23 @@ export function groupOverdueDebtorsByClient(
 export function formatINR(amount: number): string {
   return '₹' + amount.toLocaleString('en-IN');
 }
+
+export function deduplicateEmis(emis: EmiItem[]): EmiItem[] {
+  if (!emis || !Array.isArray(emis)) return [];
+  const seen = new Set<string>();
+  const uniqueList: EmiItem[] = [];
+
+  for (const item of emis) {
+    if (!item) continue;
+    const nameKey = (item.loanName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const accKey = (item.accountNo || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const key = nameKey || accKey;
+
+    if (key && !seen.has(key)) {
+      seen.add(key);
+      uniqueList.push(item);
+    }
+  }
+
+  return uniqueList;
+}
