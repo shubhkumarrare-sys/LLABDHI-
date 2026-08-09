@@ -13,7 +13,7 @@ import {
   Database,
   Table,
 } from 'lucide-react';
-import { DebtorItem, CreditorItem, EmiItem, ComplianceItem, AppSettings } from '../types';
+import { DebtorItem, CreditorItem, EmiItem, ComplianceItem, AppSettings, ItemStatus } from '../types';
 import { deduplicateEmis } from '../utils/calculations';
 import { DEFAULT_SHEET_URL } from '../utils/googleSheetSync';
 
@@ -366,21 +366,83 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
 
           const rawEmiRows = fetchedResults['EMIs'] || fetchedResults['EMI'] || fetchedResults['Loans'] || fetchedResults['Emi'] || [];
           const newEmis: EmiItem[] = deduplicateEmis(
-            rawEmiRows.map((r: any, idx: number) => ({
-              id: getFieldVal(r, ['id', 'emi_id', 'loan_id']) || `EMI-${300 + idx}`,
-              loanName: getFieldVal(r, ['loanName', 'loan name', 'loan_name', 'party', 'party name', 'bank name', 'loan', 'lender', 'particulars', 'name']) || 'Vehicle Loan',
-              vehicleModel: getFieldVal(r, ['vehicleModel', 'vehicle model', 'vehicle_model', 'vehicle', 'model', 'details', 'description', 'particulars']) || 'Vehicle',
-              lenderBank: getFieldVal(r, ['lenderBank', 'lender bank', 'lender_bank', 'bank', 'bank name', 'lender', 'institution']) || 'Lender Bank',
-              accountNo: getFieldVal(r, ['accountNo', 'account no', 'account_no', 'loan account', 'account', 'acc no']) || `LOAN-${1000 + idx}`,
-              totalLoanValue: parseFloat(getFieldVal(r, ['totalLoanValue', 'total loan value', 'total_loan_value', 'loan amount', 'sanctioned amount', 'amount']).replace(/[^0-9.]/g, '')) || 5000000,
-              remainingBalance: parseFloat(getFieldVal(r, ['remainingBalance', 'remaining balance', 'remaining_balance', 'balance', 'principal remaining', 'outstanding']).replace(/[^0-9.]/g, '')) || 2500000,
-              monthlyEmi: parseFloat(getFieldVal(r, ['monthlyEmi', 'monthly emi', 'monthly_emi', 'emi amount', 'emi', 'installment']).replace(/[^0-9.]/g, '')) || 50000,
-              dueDayOfMonth: parseInt(getFieldVal(r, ['dueDayOfMonth', 'due day', 'due_day', 'day']).replace(/[^0-9]/g, '')) || 5,
-              nextDueDate: getFieldVal(r, ['nextDueDate', 'next due date', 'next_due_date', 'due date', 'due_date', 'pay date']) || '2026-04-01',
-              status: (getFieldVal(r, ['status', 'state', 'payment status']) as any) || 'Upcoming',
-              lastPaymentDate: getFieldVal(r, ['lastPaymentDate', 'last payment date', 'last_payment_date', 'last paid date']),
-              lastPaymentRef: getFieldVal(r, ['lastPaymentRef', 'last payment ref', 'last_payment_ref', 'payment ref', 'reference']),
-            }))
+            rawEmiRows.map((r: any, idx: number) => {
+              const rawStatus = getFieldVal(r, [
+                'status',
+                'state',
+                'payment status',
+                'status/paid',
+                'paid',
+                'is paid',
+                'is_paid',
+                'check',
+                'checkbox',
+                'select',
+                'sr. no',
+                'sr no',
+                'status (paid)',
+                'paid?',
+                'done',
+              ]).toLowerCase();
+
+              const lastPayDateVal = getFieldVal(r, [
+                'lastPaymentDate',
+                'last payment date',
+                'last_payment_date',
+                'last paid date',
+                'filing / payment date',
+                'filing/payment date',
+                'payment date',
+                'payment_date',
+                'paid date',
+              ]);
+
+              let computedStatus: ItemStatus = 'Upcoming';
+              if (
+                rawStatus === 'paid' ||
+                rawStatus === 'true' ||
+                rawStatus === 'checked' ||
+                rawStatus === 'yes' ||
+                rawStatus === '1' ||
+                rawStatus === 'x' ||
+                rawStatus === 'v' ||
+                lastPayDateVal.trim() !== ''
+              ) {
+                computedStatus = 'Paid';
+              } else if (rawStatus === 'overdue') {
+                computedStatus = 'Overdue';
+              } else if (rawStatus === 'pending') {
+                computedStatus = 'Pending';
+              } else if (rawStatus === 'upcoming') {
+                computedStatus = 'Upcoming';
+              }
+
+              const rawNextDueDate = getFieldVal(r, [
+                'nextDueDate',
+                'next due date',
+                'next_due_date',
+                'due date',
+                'due_date',
+                'pay date',
+              ]);
+              const normalizedNextDueDate = normalizeSheetDate(rawNextDueDate) || '2026-04-01';
+
+              return {
+                id: getFieldVal(r, ['id', 'emi_id', 'loan_id', 'sr. no', 'sr no']) || `EMI-${300 + idx}`,
+                loanName: getFieldVal(r, ['loanName', 'loan name', 'loan_name', 'party', 'party name', 'bank name', 'loan', 'lender', 'particulars', 'name', 'entity / name', 'entity/name']) || 'Vehicle Loan',
+                vehicleModel: getFieldVal(r, ['vehicleModel', 'vehicle model', 'vehicle_model', 'vehicle', 'model', 'details', 'description', 'particulars']) || 'Vehicle',
+                lenderBank: getFieldVal(r, ['lenderBank', 'lender bank', 'lender_bank', 'bank', 'bank name', 'lender', 'institution']) || 'Lender Bank',
+                accountNo: getFieldVal(r, ['accountNo', 'account no', 'account_no', 'loan account', 'account', 'acc no']) || `LOAN-${1000 + idx}`,
+                totalLoanValue: parseFloat((getFieldVal(r, ['totalLoanValue', 'total loan value', 'total_loan_value', 'loan amount', 'sanctioned amount', 'amount']) || '0').replace(/[^0-9.]/g, '')) || 5000000,
+                remainingBalance: parseFloat((getFieldVal(r, ['remainingBalance', 'remaining balance', 'remaining_balance', 'balance', 'principal remaining', 'outstanding']) || '0').replace(/[^0-9.]/g, '')) || 2500000,
+                monthlyEmi: parseFloat((getFieldVal(r, ['monthlyEmi', 'monthly emi', 'monthly_emi', 'emi amount', 'emi', 'installment']) || '0').replace(/[^0-9.]/g, '')) || 50000,
+                dueDayOfMonth: parseInt((getFieldVal(r, ['dueDayOfMonth', 'due day', 'due_day', 'day']) || '5').replace(/[^0-9]/g, '')) || 5,
+                nextDueDate: normalizedNextDueDate,
+                status: computedStatus,
+                lastPaymentDate: lastPayDateVal || undefined,
+                lastPaymentRef: getFieldVal(r, ['lastPaymentRef', 'last payment ref', 'last_payment_ref', 'payment ref', 'reference']),
+              };
+            })
           );
 
           const rawComplianceRows =
@@ -590,21 +652,83 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
           });
         } else if (targetCategory === 'emis') {
           const newEmis: EmiItem[] = deduplicateEmis(
-            rows.map((r, idx) => ({
-              id: getFieldVal(r, ['id', 'emi_id', 'loan_id']) || `EMI-${500 + idx}`,
-              loanName: getFieldVal(r, ['loanName', 'loan name', 'loan_name', 'party', 'party name', 'bank name', 'loan', 'lender', 'particulars', 'name']) || 'Vehicle Loan',
-              vehicleModel: getFieldVal(r, ['vehicleModel', 'vehicle model', 'vehicle_model', 'vehicle', 'model', 'details', 'description', 'particulars']) || 'Vehicle',
-              lenderBank: getFieldVal(r, ['lenderBank', 'lender bank', 'lender_bank', 'bank', 'bank name', 'lender', 'institution']) || 'Lender Bank',
-              accountNo: getFieldVal(r, ['accountNo', 'account no', 'account_no', 'loan account', 'account', 'acc no']) || `LOAN-${1000 + idx}`,
-              totalLoanValue: parseFloat(getFieldVal(r, ['totalLoanValue', 'total loan value', 'total_loan_value', 'loan amount', 'sanctioned amount', 'amount']).replace(/[^0-9.]/g, '')) || 5000000,
-              remainingBalance: parseFloat(getFieldVal(r, ['remainingBalance', 'remaining balance', 'remaining_balance', 'balance', 'principal remaining', 'outstanding']).replace(/[^0-9.]/g, '')) || 2500000,
-              monthlyEmi: parseFloat(getFieldVal(r, ['monthlyEmi', 'monthly emi', 'monthly_emi', 'emi amount', 'emi', 'installment']).replace(/[^0-9.]/g, '')) || 50000,
-              dueDayOfMonth: parseInt(getFieldVal(r, ['dueDayOfMonth', 'due day', 'due_day', 'day']).replace(/[^0-9]/g, '')) || 5,
-              nextDueDate: getFieldVal(r, ['nextDueDate', 'next due date', 'next_due_date', 'due date', 'due_date', 'pay date']) || '2026-04-01',
-              status: (getFieldVal(r, ['status', 'state', 'payment status']) as any) || 'Upcoming',
-              lastPaymentDate: getFieldVal(r, ['lastPaymentDate', 'last payment date', 'last_payment_date', 'last paid date']),
-              lastPaymentRef: getFieldVal(r, ['lastPaymentRef', 'last payment ref', 'last_payment_ref', 'payment ref', 'reference']),
-            }))
+            rows.map((r, idx) => {
+              const rawStatus = getFieldVal(r, [
+                'status',
+                'state',
+                'payment status',
+                'status/paid',
+                'paid',
+                'is paid',
+                'is_paid',
+                'check',
+                'checkbox',
+                'select',
+                'sr. no',
+                'sr no',
+                'status (paid)',
+                'paid?',
+                'done',
+              ]).toLowerCase();
+
+              const lastPayDateVal = getFieldVal(r, [
+                'lastPaymentDate',
+                'last payment date',
+                'last_payment_date',
+                'last paid date',
+                'filing / payment date',
+                'filing/payment date',
+                'payment date',
+                'payment_date',
+                'paid date',
+              ]);
+
+              let computedStatus: ItemStatus = 'Upcoming';
+              if (
+                rawStatus === 'paid' ||
+                rawStatus === 'true' ||
+                rawStatus === 'checked' ||
+                rawStatus === 'yes' ||
+                rawStatus === '1' ||
+                rawStatus === 'x' ||
+                rawStatus === 'v' ||
+                lastPayDateVal.trim() !== ''
+              ) {
+                computedStatus = 'Paid';
+              } else if (rawStatus === 'overdue') {
+                computedStatus = 'Overdue';
+              } else if (rawStatus === 'pending') {
+                computedStatus = 'Pending';
+              } else if (rawStatus === 'upcoming') {
+                computedStatus = 'Upcoming';
+              }
+
+              const rawNextDueDate = getFieldVal(r, [
+                'nextDueDate',
+                'next due date',
+                'next_due_date',
+                'due date',
+                'due_date',
+                'pay date',
+              ]);
+              const normalizedNextDueDate = normalizeSheetDate(rawNextDueDate) || '2026-04-01';
+
+              return {
+                id: getFieldVal(r, ['id', 'emi_id', 'loan_id', 'sr. no', 'sr no']) || `EMI-${500 + idx}`,
+                loanName: getFieldVal(r, ['loanName', 'loan name', 'loan_name', 'party', 'party name', 'bank name', 'loan', 'lender', 'particulars', 'name', 'entity / name', 'entity/name']) || 'Vehicle Loan',
+                vehicleModel: getFieldVal(r, ['vehicleModel', 'vehicle model', 'vehicle_model', 'vehicle', 'model', 'details', 'description', 'particulars']) || 'Vehicle',
+                lenderBank: getFieldVal(r, ['lenderBank', 'lender bank', 'lender_bank', 'bank', 'bank name', 'lender', 'institution']) || 'Lender Bank',
+                accountNo: getFieldVal(r, ['accountNo', 'account no', 'account_no', 'loan account', 'account', 'acc no']) || `LOAN-${1000 + idx}`,
+                totalLoanValue: parseFloat((getFieldVal(r, ['totalLoanValue', 'total loan value', 'total_loan_value', 'loan amount', 'sanctioned amount', 'amount']) || '0').replace(/[^0-9.]/g, '')) || 5000000,
+                remainingBalance: parseFloat((getFieldVal(r, ['remainingBalance', 'remaining balance', 'remaining_balance', 'balance', 'principal remaining', 'outstanding']) || '0').replace(/[^0-9.]/g, '')) || 2500000,
+                monthlyEmi: parseFloat((getFieldVal(r, ['monthlyEmi', 'monthly emi', 'monthly_emi', 'emi amount', 'emi', 'installment']) || '0').replace(/[^0-9.]/g, '')) || 50000,
+                dueDayOfMonth: parseInt((getFieldVal(r, ['dueDayOfMonth', 'due day', 'due_day', 'day']) || '5').replace(/[^0-9]/g, '')) || 5,
+                nextDueDate: normalizedNextDueDate,
+                status: computedStatus,
+                lastPaymentDate: lastPayDateVal || undefined,
+                lastPaymentRef: getFieldVal(r, ['lastPaymentRef', 'last payment ref', 'last_payment_ref', 'payment ref', 'reference']),
+              };
+            })
           );
 
           setParsedPreview({
