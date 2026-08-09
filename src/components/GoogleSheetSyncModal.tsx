@@ -14,8 +14,8 @@ import {
   Table,
 } from 'lucide-react';
 import { DebtorItem, CreditorItem, EmiItem, ComplianceItem, AppSettings, ItemStatus } from '../types';
-import { deduplicateEmis } from '../utils/calculations';
-import { DEFAULT_SHEET_URL } from '../utils/googleSheetSync';
+import { deduplicateEmis, getTodayStr } from '../utils/calculations';
+import { DEFAULT_SHEET_URL, normalizeSheetDate } from '../utils/googleSheetSync';
 
 interface GoogleSheetSyncModalProps {
   isOpen: boolean;
@@ -78,35 +78,6 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
       }
     }
     return '';
-  };
-
-  // Date normalizer for M/D/YYYY (e.g. 7/11/2024 -> 2024-07-11)
-  const normalizeSheetDate = (raw: string): string => {
-    if (!raw || typeof raw !== 'string') return '';
-    const trimmed = raw.trim();
-    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
-
-    const parts = trimmed.split(/[/.-]/);
-    if (parts.length === 3) {
-      const p1 = parseInt(parts[0], 10);
-      const p2 = parseInt(parts[1], 10);
-      const p3 = parseInt(parts[2], 10);
-
-      if (p3 > 1000) {
-        // MM/DD/YYYY format from Google Sheets
-        const year = p3;
-        const month = String(p1).padStart(2, '0');
-        const day = String(p2).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-      } else if (p1 > 1000) {
-        // YYYY/MM/DD
-        const year = p1;
-        const month = String(p2).padStart(2, '0');
-        const day = String(p3).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-      }
-    }
-    return trimmed;
   };
 
   const extractDebtorName = (r: any): string => {
@@ -315,8 +286,10 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
               let computedStatus: 'Pending' | 'Overdue' | 'Paid' = 'Pending';
               if (rawStatus === 'paid' || rawStatus === 'true' || rawStatus === 'checked' || paymentDateVal.trim() !== '') {
                 computedStatus = 'Paid';
-              } else if (normalizedDueDate < '2026-08-05') {
+              } else if (rawStatus === 'overdue' || (normalizedDueDate && normalizedDueDate < getTodayStr())) {
                 computedStatus = 'Overdue';
+              } else {
+                computedStatus = 'Pending';
               }
 
               const rawAmount = getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount', 'total amount (₹)', 'total amount (\u20b9)']);
@@ -586,8 +559,10 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
               let computedStatus: 'Pending' | 'Overdue' | 'Paid' = 'Pending';
               if (rawStatus === 'paid' || rawStatus === 'true' || rawStatus === 'checked' || paymentDateVal.trim() !== '') {
                 computedStatus = 'Paid';
-              } else if (normalizedDueDate < '2026-08-05') {
+              } else if (rawStatus === 'overdue' || (normalizedDueDate && normalizedDueDate < getTodayStr())) {
                 computedStatus = 'Overdue';
+              } else {
+                computedStatus = 'Pending';
               }
 
               const rawAmount = getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount', 'total amount (₹)', 'total amount (\u20b9)']);

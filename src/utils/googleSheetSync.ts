@@ -1,5 +1,5 @@
 import { DebtorItem, CreditorItem, EmiItem, ComplianceItem, ItemStatus } from '../types';
-import { deduplicateEmis } from './calculations';
+import { deduplicateEmis, getTodayStr } from './calculations';
 
 export const DEFAULT_SHEET_URL =
   'https://docs.google.com/spreadsheets/d/1Q6I4-ELCWAhDZ8p6nFwHq0m63zQH4X0BuGCmMn07ec8/edit?gid=2063948472#gid=2063948472';
@@ -353,8 +353,10 @@ export const fetchLiveSheetData = async (url?: string) => {
       let computedStatus: 'Pending' | 'Overdue' | 'Paid' = 'Pending';
       if (rawStatus === 'paid' || rawStatus === 'true' || rawStatus === 'checked' || paymentDateVal.trim() !== '') {
         computedStatus = 'Paid';
-      } else if (normalizedDueDate < '2026-08-05') {
+      } else if (rawStatus === 'overdue' || (normalizedDueDate && normalizedDueDate < getTodayStr())) {
         computedStatus = 'Overdue';
+      } else {
+        computedStatus = 'Pending';
       }
 
       const rawAmount = getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount', 'total amount (₹)', 'total amount (\u20b9)']);
@@ -382,6 +384,14 @@ export const fetchLiveSheetData = async (url?: string) => {
         if (num >= 284 && num <= 296) return false;
       }
       return true;
+    })
+    .sort((a: DebtorItem, b: DebtorItem) => {
+      const statusPriority: Record<string, number> = { Overdue: 1, Pending: 2, Paid: 3 };
+      const prioA = statusPriority[a.status] || 4;
+      const prioB = statusPriority[b.status] || 4;
+
+      if (prioA !== prioB) return prioA - prioB;
+      return a.dueDate.localeCompare(b.dueDate);
     });
 
   // Parse Creditors

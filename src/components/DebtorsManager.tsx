@@ -1,15 +1,12 @@
 import React, { useState } from 'react';
 import { DebtorItem, ClientOverdueGroup } from '../types';
-import { groupOverdueDebtorsByClient, formatINR, calculateDaysDiff, getTodayStr } from '../utils/calculations';
+import { formatINR, calculateDaysDiff, getTodayStr } from '../utils/calculations';
 import {
   Search,
   Filter,
   Plus,
-  Mail,
   CheckCircle2,
   Clock,
-  AlertOctagon,
-  Sparkles,
   X,
   Building2,
   Calendar,
@@ -20,14 +17,13 @@ interface DebtorsManagerProps {
   debtors: DebtorItem[];
   onUpdateDebtor: (updatedItem: DebtorItem) => void;
   onAddDebtor: (newItem: DebtorItem) => void;
-  onGenerateEmailDraft: (clientGroup: ClientOverdueGroup) => void;
+  onGenerateEmailDraft?: (clientGroup: ClientOverdueGroup) => void;
 }
 
 export const DebtorsManager: React.FC<DebtorsManagerProps> = ({
   debtors,
   onUpdateDebtor,
   onAddDebtor,
-  onGenerateEmailDraft,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Overdue' | 'Pending' | 'Paid'>('All');
@@ -49,17 +45,28 @@ export const DebtorsManager: React.FC<DebtorsManagerProps> = ({
     notes: '',
   });
 
-  // Calculate Overdue Groups
-  const overdueGroups: ClientOverdueGroup[] = groupOverdueDebtorsByClient(debtors);
+  // Filtered & Chronologically Sorted Debtors list
+  // Default order: Overdue first (highest overdue days / earliest due date to lower overdue days), then Pending, then Paid
+  const filteredDebtors = debtors
+    .filter((item) => {
+      const matchesSearch =
+        item.clientEntity.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.invoiceRef.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === 'All' || item.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      const statusPriority: Record<string, number> = { Overdue: 1, Pending: 2, Paid: 3 };
+      const prioA = statusPriority[a.status] || 4;
+      const prioB = statusPriority[b.status] || 4;
 
-  // Filtered Debtors list
-  const filteredDebtors = debtors.filter((item) => {
-    const matchesSearch =
-      item.clientEntity.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.invoiceRef.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'All' || item.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+      if (prioA !== prioB) {
+        return prioA - prioB;
+      }
+
+      // Chronological sort by dueDate ascending (earliest due date = higher overdue days first)
+      return a.dueDate.localeCompare(b.dueDate);
+    });
 
   const handleConfirmPayment = (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,84 +125,7 @@ export const DebtorsManager: React.FC<DebtorsManagerProps> = ({
         </button>
       </div>
 
-      {/* SECTION 1: Overdue Receivables Grouped Analysis */}
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-          <div className="flex items-center space-x-2">
-            <AlertOctagon className="w-5 h-5 text-rose-600" />
-            <h2 className="text-base font-bold text-slate-900">
-              Overdue Receivables Analysis (Grouped by Entity)
-            </h2>
-          </div>
-          <span className="text-xs font-semibold px-2.5 py-1 rounded bg-rose-50 text-rose-700 border border-rose-200">
-            Total Overdue: {formatINR(overdueGroups.reduce((acc, g) => acc + g.totalOutstanding, 0))}
-          </span>
-        </div>
-
-        {overdueGroups.length === 0 ? (
-          <div className="p-6 text-center text-slate-500 text-xs">
-            🎉 Great news! There are currently no overdue receivables. All accounts are up to date.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {overdueGroups.map((group) => (
-              <div
-                key={group.clientEntity}
-                className="bg-slate-50 p-4 rounded-lg border border-slate-200 hover:border-slate-300 transition flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-bold text-sm text-slate-900">{group.clientEntity}</h3>
-                      <p className="text-[11px] text-slate-500">{group.contactEmail}</p>
-                    </div>
-                    <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 text-[10px] font-bold">
-                      {group.maxDaysOverdue} days overdue
-                    </span>
-                  </div>
-
-                  <div className="mt-3 space-y-1">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-slate-500">Outstanding Balance:</span>
-                      <span className="font-extrabold text-rose-600">
-                        {formatINR(group.totalOutstanding)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-slate-500">Overdue Invoices:</span>
-                      <span className="font-medium text-slate-700">
-                        {group.invoicesCount} invoice(s)
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* List of invoices */}
-                  <div className="mt-3 pt-2 border-t border-slate-200 space-y-1">
-                    {group.invoices.map((inv) => (
-                      <div key={inv.id} className="flex justify-between text-[11px] text-slate-600">
-                        <span className="font-mono">{inv.invoiceRef}</span>
-                        <span>{formatINR(inv.amount)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-4 pt-3 border-t border-slate-200">
-                  <button
-                    onClick={() => onGenerateEmailDraft(group)}
-                    className="w-full py-2 px-3 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs flex items-center justify-center space-x-1.5 transition cursor-pointer shadow-sm"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-indigo-200" />
-                    <span>AI Draft Reminder Email</span>
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* SECTION 2: Complete Debtors Master Table */}
+      {/* Complete Debtors Master Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="relative w-full sm:w-72">
