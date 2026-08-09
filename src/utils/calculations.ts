@@ -9,8 +9,8 @@ import {
 } from '../types';
 
 export function getTodayStr(): string {
-  // Current reference date: 5 August 2026
-  return '2026-08-05';
+  // Current reference date: 6 August 2026
+  return '2026-08-06';
 }
 
 export function getHorizonStartDate(): string {

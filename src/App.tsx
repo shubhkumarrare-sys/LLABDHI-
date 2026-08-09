@@ -106,9 +106,43 @@ export default function App() {
     return INITIAL_CREDITORS;
   });
   const [emis, setEmis] = useState<EmiItem[]>(() => {
-    const saved = localStorage.getItem('llabdhi_emis_v2');
-    const list = saved ? JSON.parse(saved) : INITIAL_EMIS;
-    return deduplicateEmis(list);
+    const saved = localStorage.getItem('llabdhi_emis_v3') || localStorage.getItem('llabdhi_emis_v2');
+    const list: EmiItem[] = saved ? JSON.parse(saved) : INITIAL_EMIS;
+    const updatedList = list.map((item) => {
+      if (
+        item.loanName.includes('300041984370019') ||
+        item.accountNo === '300041984370019' ||
+        item.loanName.toLowerCase().includes('deutsche bank') ||
+        item.loanName.toLowerCase().includes('mercedes-benz') ||
+        item.accountNo === 'SARASWAT-AL-882041'
+      ) {
+        return { ...item, status: 'Paid' as const };
+      }
+      return item;
+    });
+
+    const hasHdfcShaileja = updatedList.some(
+      (e) => e.loanName.toLowerCase().includes('shaileja') || e.accountNo === 'HDFC-SHAILEJA-88219'
+    );
+    if (!hasHdfcShaileja) {
+      updatedList.push({
+        id: 'EMI-304',
+        loanName: 'HDFC - SHAILEJA',
+        vehicleModel: 'HDFC Loan Facility - SHAILEJA',
+        lenderBank: 'HDFC Bank Ltd',
+        accountNo: 'HDFC-SHAILEJA-88219',
+        totalLoanValue: 3500000,
+        remainingBalance: 2100000,
+        monthlyEmi: 125000,
+        dueDayOfMonth: 11,
+        nextDueDate: '2026-08-11',
+        status: 'Upcoming',
+        lastPaymentDate: '2026-07-11',
+        lastPaymentRef: 'ACH/HDFC/JUL11/8812',
+      });
+    }
+
+    return deduplicateEmis(updatedList);
   });
   const [compliance, setCompliance] = useState<ComplianceItem[]>(() => {
     const saved = localStorage.getItem('llabdhi_compliance_v2');
@@ -184,7 +218,7 @@ export default function App() {
       if (liveData.emis && liveData.emis.length > 0) {
         const cleanEmis = deduplicateEmis(liveData.emis);
         setEmis(cleanEmis);
-        localStorage.setItem('llabdhi_emis_v2', JSON.stringify(cleanEmis));
+        localStorage.setItem('llabdhi_emis_v3', JSON.stringify(cleanEmis));
         updatedEmisCount = cleanEmis.length;
       }
 

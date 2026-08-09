@@ -39,11 +39,18 @@ export const normalizeSheetDate = (raw: string): string => {
     const p3 = parseInt(parts[2], 10);
 
     if (p3 > 1000) {
-      // MM/DD/YYYY format from Google Sheets
       const year = p3;
-      const month = String(p1).padStart(2, '0');
-      const day = String(p2).padStart(2, '0');
-      return `${year}-${month}-${day}`;
+      // In Indian spreadsheets (DD/MM/YYYY format e.g. 11/08/2026 -> 11 Aug 2026)
+      // p1 is Day, p2 is Month, p3 is Year
+      if (p2 <= 12 && p1 <= 31) {
+        const month = String(p2).padStart(2, '0');
+        const day = String(p1).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      } else if (p1 <= 12) {
+        const month = String(p1).padStart(2, '0');
+        const day = String(p2).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
     } else if (p1 > 1000) {
       // YYYY/MM/DD
       const year = p1;
