@@ -31,14 +31,31 @@ export function calculateDaysDiff(targetDateStr: string, baseDateStr: string = g
   return Math.round(diffTime / (1000 * 3600 * 24));
 }
 
+export function getEndOfCurrentMonthStr(dateStr: string): string {
+  if (!dateStr) return '2026-08-31';
+  const parts = dateStr.split('-');
+  if (parts.length < 3) return dateStr;
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10); // 1-indexed (8 for August)
+  if (isNaN(year) || isNaN(month)) return dateStr;
+  const lastDay = new Date(year, month, 0).getDate();
+  return `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+}
+
 export function formatDateRangeText(
   daysWindow: number,
   todayDateStr: string = getTodayStr(),
-  startDateStr: string = getHorizonStartDate()
+  startDateStr: string = getHorizonStartDate(),
+  customEndDateStr?: string
 ): string {
   const start = new Date(startDateStr + 'T00:00:00');
-  const today = new Date(todayDateStr + 'T00:00:00');
-  const endDate = new Date(today.getTime() + daysWindow * 24 * 60 * 60 * 1000);
+  let endDate: Date;
+  if (customEndDateStr) {
+    endDate = new Date(customEndDateStr + 'T00:00:00');
+  } else {
+    const today = new Date(todayDateStr + 'T00:00:00');
+    endDate = new Date(today.getTime() + daysWindow * 24 * 60 * 60 * 1000);
+  }
   
   const options: Intl.DateTimeFormatOptions = { month: 'short', day: '2-digit', year: 'numeric' };
   return `${start.toLocaleDateString('en-US', options)} – ${endDate.toLocaleDateString('en-US', options)}`;
@@ -52,15 +69,26 @@ export function calculateCashFlowForHorizonDetails(
   daysWindow: number,
   horizonLabel: string,
   todayDateStr: string = getTodayStr(),
-  startDateStr: string = getHorizonStartDate()
+  startDateStr: string = getHorizonStartDate(),
+  customEndDateStr?: string
 ): HorizonCashFlowDetails {
   const today = new Date(todayDateStr + 'T00:00:00');
-  const endDate = new Date(today.getTime() + daysWindow * 24 * 60 * 60 * 1000);
-  const endDateStr = endDate.toISOString().split('T')[0];
+  let endDateStr: string;
+  if (customEndDateStr) {
+    endDateStr = customEndDateStr;
+  } else {
+    const endDate = new Date(today.getTime() + daysWindow * 24 * 60 * 60 * 1000);
+    endDateStr = endDate.toISOString().split('T')[0];
+  }
+
+  const endTargetTime = new Date(endDateStr + 'T00:00:00').getTime();
 
   const isInRange = (dueDateStr: string) => {
     if (!dueDateStr) return false;
-    return dueDateStr <= endDateStr;
+    const cleanDueDate = dueDateStr.includes('T') ? dueDateStr.split('T')[0] : dueDateStr;
+    if (cleanDueDate <= endDateStr) return true;
+    const itemTime = new Date(cleanDueDate + 'T00:00:00').getTime();
+    return !isNaN(itemTime) && itemTime <= endTargetTime;
   };
 
   const inflows = debtors.filter((d) => {
@@ -95,7 +123,7 @@ export function calculateCashFlowForHorizonDetails(
   return {
     daysWindow,
     horizonLabel,
-    dateRangeText: formatDateRangeText(daysWindow, todayDateStr, startDateStr),
+    dateRangeText: formatDateRangeText(daysWindow, todayDateStr, startDateStr, endDateStr),
     inflows,
     outflows: {
       creditors: nextCreditors,
@@ -119,7 +147,23 @@ export function calculate5DayCashFlow(
   const horizon5Day = calculateCashFlowForHorizonDetails(debtors, creditors, emis, compliance, 5, '5-Day', todayDateStr, startDateStr);
   const horizon10Day = calculateCashFlowForHorizonDetails(debtors, creditors, emis, compliance, 10, '10-Day', todayDateStr, startDateStr);
   const horizon15Day = calculateCashFlowForHorizonDetails(debtors, creditors, emis, compliance, 15, '15-Day', todayDateStr, startDateStr);
-  const horizonMonthly = calculateCashFlowForHorizonDetails(debtors, creditors, emis, compliance, 30, 'Monthly (30-Day)', todayDateStr, startDateStr);
+
+  const monthlyEndDateStr = getEndOfCurrentMonthStr(todayDateStr);
+  const today = new Date(todayDateStr + 'T00:00:00');
+  const monthEnd = new Date(monthlyEndDateStr + 'T00:00:00');
+  const monthlyDaysWindow = Math.max(0, Math.round((monthEnd.getTime() - today.getTime()) / (1000 * 3600 * 24)));
+
+  const horizonMonthly = calculateCashFlowForHorizonDetails(
+    debtors,
+    creditors,
+    emis,
+    compliance,
+    monthlyDaysWindow,
+    'Monthly',
+    todayDateStr,
+    startDateStr,
+    monthlyEndDateStr
+  );
 
   // High risk overdue debtors: overdue by >= 14 days OR amount >= 1,50,000
   const highRiskOverdueDebtors = debtors.filter((d) => {

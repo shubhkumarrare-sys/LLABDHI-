@@ -9,7 +9,7 @@ import {
   HorizonCashFlowDetails,
   GstPayableState,
 } from '../types';
-import { calculate5DayCashFlow, formatINR } from '../utils/calculations';
+import { calculate5DayCashFlow, formatINR, getTodayStr } from '../utils/calculations';
 import {
   TrendingUp,
   TrendingDown,
@@ -59,7 +59,7 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
 }) => {
   const [selectedHorizon, setSelectedHorizon] = useState<CashFlowHorizon>('5-Day');
   const [startDateStr, setStartDateStr] = useState<string>('2026-04-01');
-  const [todayDateStr, setTodayDateStr] = useState<string>('2026-08-05');
+  const [todayDateStr, setTodayDateStr] = useState<string>(getTodayStr());
 
   // Today's GST Payable & Receivable State & Editing
   const currentGst: GstPayableState = gstPayable || {
