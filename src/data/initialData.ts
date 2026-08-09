@@ -443,7 +443,60 @@ export const INITIAL_EMIS: EmiItem[] = [
   },
 ];
 
-export const INITIAL_COMPLIANCE: ComplianceItem[] = [];
+export const INITIAL_COMPLIANCE: ComplianceItem[] = [
+  {
+    id: 'CMP-501',
+    title: 'ESIC Contribution Return',
+    period: 'July 2026',
+    dueDate: '2026-08-13',
+    governingAuthority: 'ESIC Portal',
+    status: 'Pending',
+    estimatedAmount: 14500,
+    responsibility: 'HR / Payroll',
+  },
+  {
+    id: 'CMP-502',
+    title: 'Provident Fund (PF) ECR Filing',
+    period: 'July 2026',
+    dueDate: '2026-08-15',
+    governingAuthority: 'EPFO Portal',
+    status: 'Pending',
+    estimatedAmount: 38500,
+    responsibility: 'Payroll Consultant',
+  },
+  {
+    id: 'CMP-503',
+    title: 'GSTR-3B Monthly Return',
+    period: 'July 2026',
+    dueDate: '2026-08-20',
+    governingAuthority: 'GSTN Portal',
+    status: 'Pending',
+    estimatedAmount: 425000,
+    responsibility: 'Tax Auditor',
+  },
+  {
+    id: 'CMP-504',
+    title: 'TDS Monthly Payment (Sec 192/194C/194J)',
+    period: 'July 2026',
+    dueDate: '2026-08-07',
+    governingAuthority: 'TRACES / Income Tax',
+    status: 'Filed',
+    filingDate: '2026-08-05',
+    arnChallanRef: 'CIN/00029381023912',
+    estimatedAmount: 65000,
+    responsibility: 'Accounts Team',
+  },
+  {
+    id: 'CMP-505',
+    title: 'Professional Tax (PT) Monthly Return',
+    period: 'July 2026',
+    dueDate: '2026-08-31',
+    governingAuthority: 'State Tax Dept',
+    status: 'Pending',
+    estimatedAmount: 5200,
+    responsibility: 'HR Manager',
+  },
+];
 
 export const INITIAL_CALENDAR_LOGS: CalendarLogItem[] = [];
 

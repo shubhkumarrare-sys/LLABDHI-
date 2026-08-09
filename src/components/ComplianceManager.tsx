@@ -3,7 +3,6 @@ import { ComplianceItem } from '../types';
 import { formatINR, calculateDaysDiff, getTodayStr } from '../utils/calculations';
 import {
   FileCheck2,
-  AlertCircle,
   ExternalLink,
   CheckCircle2,
   Clock,
@@ -12,7 +11,6 @@ import {
   ShieldAlert,
   Plus,
   Trash2,
-  RefreshCw,
 } from 'lucide-react';
 
 interface ComplianceManagerProps {
@@ -21,6 +19,7 @@ interface ComplianceManagerProps {
   onAddCompliance?: (newItem: ComplianceItem) => void;
   onDeleteCompliance?: (id: string) => void;
   onOpenSyncModal?: () => void;
+  onRefreshSheet?: () => void;
 }
 
 export const ComplianceManager: React.FC<ComplianceManagerProps> = ({
@@ -29,6 +28,7 @@ export const ComplianceManager: React.FC<ComplianceManagerProps> = ({
   onAddCompliance,
   onDeleteCompliance,
   onOpenSyncModal,
+  onRefreshSheet,
 }) => {
   const [selectedCompliance, setSelectedCompliance] = useState<ComplianceItem | null>(null);
   const [arnChallanRef, setArnChallanRef] = useState('');
@@ -95,10 +95,6 @@ export const ComplianceManager: React.FC<ComplianceManagerProps> = ({
     }
   };
 
-  const missingArnItems = complianceList.filter(
-    (c) => c.status !== 'Filed' && (!c.arnChallanRef || !c.filingDate)
-  );
-
   return (
     <div className="space-y-6">
       {/* Header Banner */}
@@ -107,24 +103,15 @@ export const ComplianceManager: React.FC<ComplianceManagerProps> = ({
           <div className="flex items-center space-x-2">
             <FileCheck2 className="w-5 h-5 text-indigo-600" />
             <h1 className="text-xl font-bold text-slate-900">
-              Statutory Compliance & Tax Deadline Tracker
+              LLP Compliance & Tax Deadline Tracker
             </h1>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            LLP Statutory obligations across GSTN, Income Tax Dept, and MCA V3 (GSTR-1, GSTR-3B, TDS, Advance Tax, DIR-3 KYC, Form 8 & 11).
+            LLP obligations across GSTN, Income Tax Dept, and MCA V3 (GSTR-1, GSTR-3B, TDS, Advance Tax, DIR-3 KYC, Form 8 & 11).
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
-          {onOpenSyncModal && (
-            <button
-              onClick={onOpenSyncModal}
-              className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center space-x-1.5 transition cursor-pointer shadow"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Sync Google Sheet</span>
-            </button>
-          )}
           <button
             onClick={() => setIsAddModalOpen(true)}
             className="px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center space-x-1.5 transition cursor-pointer shadow"
@@ -153,32 +140,14 @@ export const ComplianceManager: React.FC<ComplianceManagerProps> = ({
         </div>
       </div>
 
-      {/* Missing ARN Alert Callout */}
-      {missingArnItems.length > 0 && (
-        <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-xl shadow-sm">
-          <div className="flex items-start space-x-3">
-            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-            <div>
-              <h3 className="text-xs font-bold text-amber-900">
-                {missingArnItems.length} Pending Compliance Action Item(s) Missing ARN/Challan Numbers
-              </h3>
-              <p className="text-xs text-amber-800 mt-0.5">
-                The following filings/deposits require updated ARN / Challan numbers and filing dates upon completion:
-                {' ' + missingArnItems.map((m) => m.title).join(', ')}.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Main Compliance Tracker Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
           <h2 className="font-bold text-sm text-slate-800">
-            LLP Statutory Compliance Schedule & Governing Authorities
+            LLP Compliance Schedule & Governing Authorities
           </h2>
           <span className="text-xs text-slate-500 font-medium">
-            {complianceList.length} Statutory Tracking Records
+            {complianceList.length} LLP Compliance Records
           </span>
         </div>
 
@@ -307,19 +276,10 @@ export const ComplianceManager: React.FC<ComplianceManagerProps> = ({
           <div className="p-10 text-center bg-slate-50 border-t border-slate-200">
             <div className="max-w-md mx-auto space-y-3">
               <FileCheck2 className="w-10 h-10 text-slate-400 mx-auto stroke-1" />
-              <h3 className="text-sm font-bold text-slate-800">No Statutory Compliance Records</h3>
+              <h3 className="text-sm font-bold text-slate-800">No LLP Compliance Records</h3>
               <p className="text-xs text-slate-500">
-                All statutory compliance records have been cleared. Sync compliance obligations from your Google Sheet <strong className="text-slate-700 font-semibold font-mono">"LLP Compliance"</strong> tab or add new items manually.
+                All LLP compliance records have been cleared. Add new items manually or refresh your live sheet data.
               </p>
-              {onOpenSyncModal && (
-                <button
-                  onClick={onOpenSyncModal}
-                  className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs transition cursor-pointer shadow mt-2"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Sync "LLP Compliance" Tab from Google Sheet</span>
-                </button>
-              )}
             </div>
           </div>
         )}
@@ -410,7 +370,7 @@ export const ComplianceManager: React.FC<ComplianceManagerProps> = ({
                   <FileCheck2 className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900 text-base">Add Statutory Compliance Item</h3>
+                  <h3 className="font-bold text-slate-900 text-base">Add LLP Compliance Item</h3>
                   <p className="text-xs text-slate-500">Track a new GST, MCA, Income Tax, or LLP filing requirement</p>
                 </div>
               </div>
@@ -522,7 +482,7 @@ export const ComplianceManager: React.FC<ComplianceManagerProps> = ({
                   type="submit"
                   className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold cursor-pointer shadow"
                 >
-                  Add Statutory Compliance
+                  Add LLP Compliance
                 </button>
               </div>
             </form>

@@ -35,14 +35,14 @@ export const AiCfoDrawer: React.FC<AiCfoDrawerProps> = ({
     {
       id: 'welcome-1',
       sender: 'ai',
-      text: 'Hello! I am your AI Chief Financial & Operations Manager for Llabdhi Manufacturing LLP.\n\nI have full access to the "LLABDHI OPS NODE" dataset across your 5-Day, 15-Day, and Monthly Cash Flow Command Centers, Debtors, Creditors, Car Loans (MG Cyberster & Mercedes-Benz), and LLP Statutory Compliance (GST, TDS, MCA). How can I assist you today?',
+      text: 'Hello! I am your AI Chief Financial & Operations Manager for Llabdhi Manufacturing LLP.\n\nI have full access to the "LLABDHI OPS NODE" dataset across your 5-Day, 15-Day, and Monthly Cash Flow Command Centers, Debtors, Creditors, Car Loans (MG Cyberster & Mercedes-Benz), and LLP Compliance (GST, TDS, MCA). How can I assist you today?',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       suggestions: [
         'Generate 5-Day Cash Flow Report',
         'Generate 15-Day Cash Flow Projection',
         'Generate Monthly (30-Day) Cash Flow Report',
         'Analyze Overdue Receivables by Client',
-        'Check Statutory Compliance Deadlines for GST & MCA',
+        'Check LLP Compliance Deadlines for GST & MCA',
       ],
     },
   ]);

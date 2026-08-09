@@ -631,7 +631,7 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
             {formatINR(activeDetails.totalOutflow)}
           </p>
           <p className="text-xs text-rose-600 font-medium mt-1">
-            Creditors + EMIs + Statutory Compliance
+            Creditors + EMIs + LLP Compliance
           </p>
         </div>
 
@@ -840,10 +840,10 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
             {/* Compliance Liabilities */}
             <div className="border-t border-slate-100 pt-3">
               <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
-                Statutory Compliance
+                LLP Compliance
               </span>
               {activeDetails.outflows.compliance.length === 0 ? (
-                <p className="text-xs text-slate-400 italic">No statutory tax/MCA items due in {activeDetails.daysWindow} days.</p>
+                <p className="text-xs text-slate-400 italic">No LLP tax/MCA items due in {activeDetails.daysWindow} days.</p>
               ) : (
                 <table className="w-full text-left text-xs">
                   <tbody className="divide-y divide-slate-100">

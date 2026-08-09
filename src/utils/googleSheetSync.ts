@@ -26,39 +26,88 @@ export const getFieldVal = (r: any, keys: string[]): string => {
   return '';
 };
 
-// Date normalizer for M/D/YYYY (e.g. 7/11/2024 -> 2024-07-11)
+// Date normalizer for M/D/YYYY, DD/MM/YYYY, 13-Aug-2026, 13th Aug 2026, etc.
 export const normalizeSheetDate = (raw: string): string => {
   if (!raw || typeof raw !== 'string') return '';
-  const trimmed = raw.trim();
+  let trimmed = raw.trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
 
-  const parts = trimmed.split(/[/.-]/);
-  if (parts.length === 3) {
-    const p1 = parseInt(parts[0], 10);
-    const p2 = parseInt(parts[1], 10);
-    const p3 = parseInt(parts[2], 10);
+  // Remove ordinal suffixes e.g. "13th Aug 2026" -> "13 Aug 2026"
+  trimmed = trimmed.replace(/(\d+)(st|nd|rd|th)/i, '$1');
 
-    if (p3 > 1000) {
+  const monthNames: Record<string, string> = {
+    jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+    jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12',
+    january: '01', february: '02', march: '03', april: '04', june: '06',
+    july: '07', august: '08', september: '09', october: '10', november: '11', december: '12',
+  };
+
+  const parts = trimmed.split(/[/.\-\s]+/);
+  if (parts.length >= 3) {
+    const p1 = parts[0].toLowerCase();
+    const p2 = parts[1].toLowerCase();
+    let p3 = parts[2].toLowerCase();
+
+    // Convert 2-digit year '26' to '2026'
+    if (p3.length === 2 && !isNaN(parseInt(p3, 10))) {
+      p3 = `20${p3}`;
+    }
+
+    const m1 = monthNames[p1];
+    const m2 = monthNames[p2];
+
+    if (m2) {
+      // Format: 13-Aug-2026 (Day-Month-Year)
+      const day = String(parseInt(p1, 10)).padStart(2, '0');
+      const month = m2;
       const year = p3;
-      // In Indian spreadsheets (DD/MM/YYYY format e.g. 11/08/2026 -> 11 Aug 2026)
-      // p1 is Day, p2 is Month, p3 is Year
-      if (p2 <= 12 && p1 <= 31) {
-        const month = String(p2).padStart(2, '0');
-        const day = String(p1).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-      } else if (p1 <= 12) {
-        const month = String(p1).padStart(2, '0');
-        const day = String(p2).padStart(2, '0');
+      if (!isNaN(parseInt(day, 10)) && !isNaN(parseInt(year, 10))) {
         return `${year}-${month}-${day}`;
       }
-    } else if (p1 > 1000) {
-      // YYYY/MM/DD
-      const year = p1;
-      const month = String(p2).padStart(2, '0');
-      const day = String(p3).padStart(2, '0');
-      return `${year}-${month}-${day}`;
+    } else if (m1) {
+      // Format: Aug-13-2026 (Month-Day-Year)
+      const month = m1;
+      const day = String(parseInt(p2, 10)).padStart(2, '0');
+      const year = p3;
+      if (!isNaN(parseInt(day, 10)) && !isNaN(parseInt(year, 10))) {
+        return `${year}-${month}-${day}`;
+      }
+    } else {
+      // Numeric parts e.g. 13/08/2026 or 2026-08-13
+      const num1 = parseInt(p1, 10);
+      const num2 = parseInt(p2, 10);
+      const num3 = parseInt(p3, 10);
+
+      if (num3 > 1000) {
+        const year = num3;
+        if (num2 <= 12 && num1 <= 31) {
+          // Indian DD/MM/YYYY format
+          const month = String(num2).padStart(2, '0');
+          const day = String(num1).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        } else if (num1 <= 12) {
+          const month = String(num1).padStart(2, '0');
+          const day = String(num2).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        }
+      } else if (num1 > 1000) {
+        const year = num1;
+        const month = String(num2).padStart(2, '0');
+        const day = String(num3).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
     }
   }
+
+  // Fallback to JS Date parser if valid
+  const parsedDate = new Date(trimmed);
+  if (!isNaN(parsedDate.getTime())) {
+    const y = parsedDate.getFullYear();
+    const m = String(parsedDate.getMonth() + 1).padStart(2, '0');
+    const d = String(parsedDate.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
   return trimmed;
 };
 
@@ -148,6 +197,13 @@ export const extractComplianceTitle = (r: any): string => {
     'title / return',
     'compliance / return',
     'compliance return',
+    'return type',
+    'type of return',
+    'form',
+    'esic',
+    'pf',
+    'tds',
+    'gst',
     'name',
     'head',
     'task',
@@ -155,6 +211,9 @@ export const extractComplianceTitle = (r: any): string => {
     'compliance requirement',
     'description',
     'details',
+    'return',
+    'statutory return',
+    'filing',
   ]);
   if (val) {
     const lower = val.trim().toLowerCase();
@@ -168,11 +227,31 @@ export const extractComplianceTitle = (r: any): string => {
       lower === 'task' ||
       lower === 'head' ||
       lower === 'compliance head' ||
-      lower === 'title / return'
+      lower === 'title / return' ||
+      lower === 'sr no' ||
+      lower === 's.no' ||
+      lower === 'sl no'
     ) {
       return '';
     }
     return val.trim();
+  }
+  if (r && typeof r === 'object') {
+    for (const k of Object.keys(r)) {
+      const v = String(r[k] || '').trim();
+      if (
+        v.length > 2 &&
+        !/^\d{4}-\d{2}-\d{2}$/.test(v) &&
+        !/^\d+$/.test(v) &&
+        !/^(pending|filed|overdue|paid)$/i.test(v) &&
+        !/^[\d,.\s₹$]+$/.test(v)
+      ) {
+        const lowerKey = k.toLowerCase();
+        if (!lowerKey.includes('date') && !lowerKey.includes('status') && !lowerKey.includes('amount') && !lowerKey.includes('fee')) {
+          return v;
+        }
+      }
+    }
   }
   return '';
 };
@@ -222,7 +301,20 @@ export const fetchLiveSheetData = async (url?: string) => {
     throw new Error('Invalid Google Sheet URL.');
   }
 
-  const tabsToFetch = ['Debtors', 'Creditors', 'EMIs', 'EMI', 'Loans', 'LLP_Compliance', 'Compliance'];
+  const tabsToFetch = [
+    'Debtors',
+    'Creditors',
+    'EMIs',
+    'EMI',
+    'Loans',
+    'LLP_Compliance',
+    'LLP Compliance',
+    'Compliance',
+    'Statutory_Compliance',
+    'Statutory Compliance',
+    'Statutory',
+    'Compliance_Calendar',
+  ];
   const fetchedResults: Record<string, any[]> = {};
 
   for (const tabName of tabsToFetch) {
@@ -396,28 +488,53 @@ export const fetchLiveSheetData = async (url?: string) => {
   // Parse Compliance
   const rawComplianceRows =
     fetchedResults['LLP_Compliance'] ||
+    fetchedResults['LLP Compliance'] ||
     fetchedResults['Compliance'] ||
     fetchedResults['Statutory_Compliance'] ||
+    fetchedResults['Statutory Compliance'] ||
+    fetchedResults['Statutory'] ||
     fetchedResults['Compliance_Calendar'] ||
-    fetchedResults['LLP Compliance'] ||
     [];
   const compliance: ComplianceItem[] = rawComplianceRows
     .map((r: any, idx: number) => {
       const exactTitle = extractComplianceTitle(r);
+      const rawStatus = String(getFieldVal(r, ['status', 'state', 'filing status', 'compliance status']) || 'Pending').trim();
+      let cleanStatus: 'Pending' | 'Filed' | 'Overdue' = 'Pending';
+      if (/filed|done|completed|paid|cleared/i.test(rawStatus)) {
+        cleanStatus = 'Filed';
+      } else if (/overdue|delay|delayed/i.test(rawStatus)) {
+        cleanStatus = 'Overdue';
+      }
+
+      const rawDueDate = getFieldVal(r, [
+        'dueDate',
+        'due date',
+        'due_date',
+        'due',
+        'pay date',
+        'date',
+        'compliance date',
+        'statutory due date',
+        'last date',
+        'target date',
+        'filing due date',
+      ]);
+      const normalizedDueDate = normalizeSheetDate(rawDueDate) || '2026-08-20';
+
       return {
         id: getFieldVal(r, ['id', 'cmp_id', 'compliance_id']) || `CMP-${400 + idx}`,
-        title: exactTitle || 'Statutory Compliance',
+        title: exactTitle || `LLP Compliance #${idx + 1}`,
         period: getFieldVal(r, ['period', 'financial_period', 'fy', 'month', 'year']) || 'FY 2026-27',
-        dueDate: normalizeSheetDate(getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date'])) || '2026-08-20',
-        governingAuthority: (getFieldVal(r, ['governingAuthority', 'governing authority', 'authority', 'portal', 'dept', 'department']) as any) || 'GSTN Portal',
-        status: (getFieldVal(r, ['status', 'state', 'filing status']) as any) || 'Pending',
+        dueDate: normalizedDueDate,
+        governingAuthority: (getFieldVal(r, ['governingAuthority', 'governing authority', 'authority', 'portal', 'dept', 'department', 'gov dept', 'agency']) as any) || 'GSTN Portal',
+        status: cleanStatus,
         filingDate: getFieldVal(r, ['filingDate', 'filing date', 'filing_date', 'filed on']),
         arnChallanRef: getFieldVal(r, ['arnChallanRef', 'arn challan ref', 'arn_challan_ref', 'arn', 'challan ref', 'ref']),
-        estimatedAmount: parseFloat((getFieldVal(r, ['estimatedAmount', 'estimated amount', 'estimated_amount', 'amount', 'tax liability', 'fees']) || '0').replace(/[^0-9.]/g, '')) || undefined,
+        estimatedAmount: parseFloat((getFieldVal(r, ['estimatedAmount', 'estimated amount', 'estimated_amount', 'amount', 'tax liability', 'fees', 'liability']) || '0').replace(/[^0-9.]/g, '')) || undefined,
         responsibility: getFieldVal(r, ['responsibility', 'responsible', 'assigned to', 'person', 'consultant']),
       };
     })
-    .filter((c: ComplianceItem) => c.title && c.title.trim() !== '' && c.title !== 'Statutory Compliance');
+    .filter((c: ComplianceItem) => c.title && c.title.trim() !== '');
 
   return {
     debtors,

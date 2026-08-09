@@ -741,47 +741,44 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
         } else if (targetCategory === 'compliance') {
           const newCompliance: ComplianceItem[] = rows
             .map((r, idx) => {
-              const exactTitle =
-                extractComplianceTitle(r) ||
-                getFieldVal(r, [
-                  'title',
-                  'compliance title',
-                  'compliance_title',
-                  'complianceName',
-                  'compliance_name',
-                  'statutory compliance',
-                  'statutory_compliance',
-                  'statutory compliance title',
-                  'compliance',
-                  'compliance head',
-                  'statutory head',
-                  'tax head',
-                  'particulars',
-                  'title / return',
-                  'compliance / return',
-                  'compliance return',
-                  'name',
-                  'head',
-                  'task',
-                  'nature of payment',
-                  'compliance requirement',
-                  'description',
-                  'details',
-                ]);
+              const exactTitle = extractComplianceTitle(r);
+              const rawStatus = String(getFieldVal(r, ['status', 'state', 'filing status', 'compliance status']) || 'Pending').trim();
+              let cleanStatus: 'Pending' | 'Filed' | 'Overdue' = 'Pending';
+              if (/filed|done|completed|paid|cleared/i.test(rawStatus)) {
+                cleanStatus = 'Filed';
+              } else if (/overdue|delay|delayed/i.test(rawStatus)) {
+                cleanStatus = 'Overdue';
+              }
+
+              const rawDueDate = getFieldVal(r, [
+                'dueDate',
+                'due date',
+                'due_date',
+                'due',
+                'pay date',
+                'date',
+                'compliance date',
+                'statutory due date',
+                'last date',
+                'target date',
+                'filing due date',
+              ]);
+              const normalizedDueDate = normalizeSheetDate(rawDueDate) || '2026-08-20';
+
               return {
                 id: getFieldVal(r, ['id', 'cmp_id', 'compliance_id']) || `CMP-${500 + idx}`,
-                title: exactTitle || 'Statutory Compliance',
+                title: exactTitle || `LLP Compliance #${idx + 1}`,
                 period: getFieldVal(r, ['period', 'financial_period', 'fy', 'month', 'year']) || 'FY 2026-27',
-                dueDate: getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']) || '2026-08-20',
-                governingAuthority: (getFieldVal(r, ['governingAuthority', 'governing authority', 'authority', 'portal', 'dept', 'department']) as any) || 'GSTN Portal',
-                status: (getFieldVal(r, ['status', 'state', 'filing status']) as any) || 'Pending',
+                dueDate: normalizedDueDate,
+                governingAuthority: (getFieldVal(r, ['governingAuthority', 'governing authority', 'authority', 'portal', 'dept', 'department', 'gov dept', 'agency']) as any) || 'GSTN Portal',
+                status: cleanStatus,
                 filingDate: getFieldVal(r, ['filingDate', 'filing date', 'filing_date', 'filed on']),
                 arnChallanRef: getFieldVal(r, ['arnChallanRef', 'arn challan ref', 'arn_challan_ref', 'arn', 'challan ref', 'ref']),
-                estimatedAmount: parseFloat((getFieldVal(r, ['estimatedAmount', 'estimated amount', 'estimated_amount', 'amount', 'tax liability', 'fees']) || '0').replace(/[^0-9.]/g, '')) || undefined,
+                estimatedAmount: parseFloat((getFieldVal(r, ['estimatedAmount', 'estimated amount', 'estimated_amount', 'amount', 'tax liability', 'fees', 'liability']) || '0').replace(/[^0-9.]/g, '')) || undefined,
                 responsibility: getFieldVal(r, ['responsibility', 'responsible', 'assigned to', 'person', 'consultant']),
               };
             })
-            .filter((c: ComplianceItem) => c.title && c.title.trim() !== '' && c.title !== 'Statutory Compliance');
+            .filter((c: ComplianceItem) => c.title && c.title.trim() !== '');
 
           setParsedPreview({
             debtorsCount: 0,
@@ -967,7 +964,7 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
                   <option value="debtors">Debtors (Receivables)</option>
                   <option value="creditors">Creditors (Payables)</option>
                   <option value="emis">EMIs & Loan Parties</option>
-                  <option value="compliance">LLP Statutory Compliance</option>
+                  <option value="compliance">LLP Compliance</option>
                 </select>
               </div>
 

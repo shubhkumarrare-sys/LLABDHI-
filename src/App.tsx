@@ -145,8 +145,33 @@ export default function App() {
     return deduplicateEmis(updatedList);
   });
   const [compliance, setCompliance] = useState<ComplianceItem[]>(() => {
-    const saved = localStorage.getItem('llabdhi_compliance_v2');
-    return saved ? JSON.parse(saved) : INITIAL_COMPLIANCE;
+    const saved = localStorage.getItem('llabdhi_compliance_v3') || localStorage.getItem('llabdhi_compliance_v2');
+    const list: ComplianceItem[] = saved && JSON.parse(saved).length > 0 ? JSON.parse(saved) : INITIAL_COMPLIANCE;
+    const hasEsic = list.some((c) => c.title.toLowerCase().includes('esic'));
+    let updatedList = list;
+    if (!hasEsic) {
+      updatedList = [
+        ...list,
+        {
+          id: 'CMP-501',
+          title: 'ESIC Contribution Return',
+          period: 'July 2026',
+          dueDate: '2026-08-13',
+          governingAuthority: 'ESIC Portal',
+          status: 'Pending',
+          estimatedAmount: 14500,
+          responsibility: 'HR / Payroll',
+        },
+      ];
+    } else {
+      updatedList = list.map((item) => {
+        if (item.title.toLowerCase().includes('esic')) {
+          return { ...item, dueDate: '2026-08-13' };
+        }
+        return item;
+      });
+    }
+    return updatedList;
   });
   const [gstPayable, setGstPayable] = useState<GstPayableState>(() => {
     const saved = localStorage.getItem('llabdhi_gst_payable');
@@ -224,7 +249,7 @@ export default function App() {
 
       if (liveData.compliance && liveData.compliance.length > 0) {
         setCompliance(liveData.compliance);
-        localStorage.setItem('llabdhi_compliance_v2', JSON.stringify(liveData.compliance));
+        localStorage.setItem('llabdhi_compliance_v3', JSON.stringify(liveData.compliance));
         updatedComplianceCount = liveData.compliance.length;
       }
 
@@ -592,6 +617,7 @@ export default function App() {
             onAddCompliance={handleAddCompliance}
             onDeleteCompliance={handleDeleteCompliance}
             onOpenSyncModal={() => setIsSheetSyncOpen(true)}
+            onRefreshSheet={handleRefreshSheet}
           />
         )}
 
