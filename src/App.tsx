@@ -34,6 +34,7 @@ import {
   INITIAL_GST_PAYABLE,
 } from './data/initialData';
 import { deduplicateEmis } from './utils/calculations';
+import { fetchLiveSheetData } from './utils/googleSheetSync';
 
 import { Sparkles, X, Copy, Check, Send, Mail } from 'lucide-react';
 
@@ -141,8 +142,70 @@ export default function App() {
   const [emailLogs, setEmailLogs] = useState<EmailLogItem[]>(INITIAL_EMAIL_LOGS);
   const [settings, setSettings] = useState<AppSettings>(INITIAL_SETTINGS);
 
-  // Google Sheet Sync Modal State
+  // Google Sheet Sync & Refresh State
   const [isSheetSyncOpen, setIsSheetSyncOpen] = useState(false);
+  const [isRefreshingSheet, setIsRefreshingSheet] = useState(false);
+  const [refreshStatusMessage, setRefreshStatusMessage] = useState<string | null>(null);
+
+  // Directly refresh data from the live Google Sheet link
+  const handleRefreshSheet = async () => {
+    setIsRefreshingSheet(true);
+    setRefreshStatusMessage(null);
+    try {
+      const liveData = await fetchLiveSheetData();
+
+      let updatedDebtorsCount = 0;
+      let updatedCreditorsCount = 0;
+      let updatedEmisCount = 0;
+      let updatedComplianceCount = 0;
+
+      if (liveData.debtors && liveData.debtors.length > 0) {
+        const filtered = liveData.debtors.filter((d) => !isExcludedDebtor(d));
+        setDebtors(filtered);
+        localStorage.setItem('llabdhi_debtors_v3', JSON.stringify(filtered));
+        updatedDebtorsCount = filtered.length;
+      }
+
+      if (liveData.creditors && liveData.creditors.length > 0) {
+        const filteredCreditors = liveData.creditors.filter(
+          (c) =>
+            c.id !== 'CRE-301' &&
+            c.id !== 'CRE-302' &&
+            c.vendorEntity &&
+            c.vendorEntity.trim() !== '' &&
+            c.vendorEntity.toLowerCase() !== 'creditor entity' &&
+            c.vendorEntity.toLowerCase() !== 'vendor entity'
+        );
+        setCreditors(filteredCreditors);
+        localStorage.setItem('llabdhi_creditors_v5', JSON.stringify(filteredCreditors));
+        updatedCreditorsCount = filteredCreditors.length;
+      }
+
+      if (liveData.emis && liveData.emis.length > 0) {
+        const cleanEmis = deduplicateEmis(liveData.emis);
+        setEmis(cleanEmis);
+        localStorage.setItem('llabdhi_emis_v2', JSON.stringify(cleanEmis));
+        updatedEmisCount = cleanEmis.length;
+      }
+
+      if (liveData.compliance && liveData.compliance.length > 0) {
+        setCompliance(liveData.compliance);
+        localStorage.setItem('llabdhi_compliance_v2', JSON.stringify(liveData.compliance));
+        updatedComplianceCount = liveData.compliance.length;
+      }
+
+      setRefreshStatusMessage(
+        `✅ Live Google Sheet Refreshed! Updated ${updatedDebtorsCount} Debtors, ${updatedCreditorsCount} Creditors, ${updatedEmisCount} EMIs, and ${updatedComplianceCount} Compliance items.`
+      );
+      setTimeout(() => setRefreshStatusMessage(null), 5000);
+    } catch (err: any) {
+      console.error('Error refreshing Google Sheet:', err);
+      setRefreshStatusMessage(`⚠️ Refresh failed: ${err?.message || 'Could not fetch live sheet data.'}`);
+      setTimeout(() => setRefreshStatusMessage(null), 6000);
+    } finally {
+      setIsRefreshingSheet(false);
+    }
+  };
 
   // AI Drawer State
   const [isAiDrawerOpen, setIsAiDrawerOpen] = useState(false);
@@ -425,6 +488,9 @@ export default function App() {
           setAiDrawerPrompt(undefined);
           setIsAiDrawerOpen(true);
         }}
+        onRefreshSheet={handleRefreshSheet}
+        isRefreshingSheet={isRefreshingSheet}
+        refreshStatusMessage={refreshStatusMessage}
         openGoogleSheetSync={() => setIsSheetSyncOpen(true)}
         overdueCount={overdueCount}
         onLogout={handleLogout}

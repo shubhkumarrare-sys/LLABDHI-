@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { DebtorItem, CreditorItem, EmiItem, ComplianceItem, AppSettings } from '../types';
 import { deduplicateEmis } from '../utils/calculations';
+import { DEFAULT_SHEET_URL } from '../utils/googleSheetSync';
 
 interface GoogleSheetSyncModalProps {
   isOpen: boolean;
@@ -42,7 +43,7 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
   currentData,
 }) => {
   const [activeTab, setActiveTab] = useState<'urlSync' | 'pasteCsv' | 'pasteJson'>('urlSync');
-  const [sheetUrl, setSheetUrl] = useState(() => localStorage.getItem('llabdhi_sheet_url') || '');
+  const [sheetUrl, setSheetUrl] = useState(() => localStorage.getItem('llabdhi_sheet_url') || DEFAULT_SHEET_URL);
   const [rawText, setRawText] = useState('');
   const [targetCategory, setTargetCategory] = useState<'all' | 'debtors' | 'creditors' | 'emis' | 'compliance'>('all');
   const [isLoading, setIsLoading] = useState(false);

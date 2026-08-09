@@ -9,14 +9,17 @@ import {
   Settings,
   Bot,
   LogOut,
+  RefreshCw,
+  FileSpreadsheet,
 } from 'lucide-react';
-
-import { FileSpreadsheet } from 'lucide-react';
 
 interface NavbarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   openAiChat: () => void;
+  onRefreshSheet?: () => void;
+  isRefreshingSheet?: boolean;
+  refreshStatusMessage?: string | null;
   openGoogleSheetSync?: () => void;
   overdueCount: number;
   onLogout?: () => void;
@@ -26,6 +29,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   setActiveTab,
   openAiChat,
+  onRefreshSheet,
+  isRefreshingSheet,
+  refreshStatusMessage,
   openGoogleSheetSync,
   overdueCount,
   onLogout,
@@ -66,15 +72,31 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* AI Manager, Google Sheet Sync & Logout Action Buttons */}
+          {/* Refresh Sheet, AI Manager & Logout Action Buttons */}
           <div className="flex items-center space-x-2">
+            {onRefreshSheet && (
+              <button
+                onClick={onRefreshSheet}
+                disabled={isRefreshingSheet}
+                title="Directly refresh data from live Google Sheet"
+                className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-70 text-white font-medium text-xs transition-all shadow-sm group cursor-pointer border border-emerald-500/30"
+              >
+                <RefreshCw
+                  className={`w-3.5 h-3.5 text-emerald-100 ${
+                    isRefreshingSheet ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'
+                  }`}
+                />
+                <span className="font-semibold">{isRefreshingSheet ? 'Refreshing Sheet...' : 'Refresh Sheet'}</span>
+              </button>
+            )}
+
             {openGoogleSheetSync && (
               <button
                 onClick={openGoogleSheetSync}
-                className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs transition-all shadow-sm group cursor-pointer border border-emerald-500/30"
+                title="Google Sheet Link Settings"
+                className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700"
               >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-200 group-hover:scale-110 transition-transform" />
-                <span className="hidden md:inline">Sync Google Sheet</span>
+                <FileSpreadsheet className="w-3.5 h-3.5 text-slate-300" />
               </button>
             )}
 
@@ -98,6 +120,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </div>
         </div>
+
+        {refreshStatusMessage && (
+          <div className="bg-emerald-950/80 border border-emerald-500/30 text-emerald-300 px-3 py-1 rounded text-xs mb-2 flex items-center justify-between animate-fade-in">
+            <span>{refreshStatusMessage}</span>
+          </div>
+        )}
 
         {/* Navigation Tabs */}
         <nav className="flex space-x-1 overflow-x-auto pb-2 scrollbar-none border-t border-slate-800/80 pt-2">
