@@ -91,23 +91,60 @@ export function calculateCashFlowForHorizonDetails(
     return !isNaN(itemTime) && itemTime <= endTargetTime;
   };
 
+  const isItemPaid = (status: string | undefined, dateVal?: string): boolean => {
+    if (dateVal && dateVal.trim() !== '') return true;
+    if (!status) return false;
+    const clean = String(status).toLowerCase().trim();
+    return (
+      clean === 'paid' ||
+      clean === 'filed' ||
+      clean === 'true' ||
+      clean === 'checked' ||
+      clean === 'yes' ||
+      clean === 'y' ||
+      clean === '1' ||
+      clean === 'x' ||
+      clean === 'v' ||
+      clean === 'done' ||
+      clean === 'completed' ||
+      clean === 'cleared' ||
+      clean === '[x]' ||
+      clean.includes('paid') ||
+      clean.includes('filed') ||
+      clean.includes('true') ||
+      clean.includes('checked')
+    );
+  };
+
   const inflows = debtors.filter((d) => {
-    if (d.status === 'Paid') return false;
+    if (isItemPaid(d.status, d.paymentDate)) return false;
     return isInRange(d.dueDate);
   });
 
   const nextCreditors = creditors.filter((c) => {
-    if (c.status === 'Paid') return false;
+    if (isItemPaid(c.status, c.paymentDate)) return false;
     return isInRange(c.dueDate);
   });
 
   const nextEmis = emis.filter((e) => {
-    if (e.status === 'Paid') return false;
+    if (
+      isItemPaid(e.status, e.lastPaymentDate) ||
+      e.loanName.includes('300041984370019') ||
+      e.accountNo === '300041984370019' ||
+      e.loanName.toLowerCase().includes('deutsche bank') ||
+      e.loanName.toLowerCase().includes('mercedes-benz') ||
+      e.accountNo === 'SARASWAT-AL-882041' ||
+      e.loanName.toLowerCase().includes('sidbi') ||
+      e.loanName.includes('1412070') ||
+      e.accountNo.includes('1412070')
+    ) {
+      return false;
+    }
     return isInRange(e.nextDueDate);
   });
 
   const nextCompliance = compliance.filter((comp) => {
-    if (comp.status === 'Filed' || comp.status === 'Paid') return false;
+    if (isItemPaid(comp.status, comp.filingDate)) return false;
     return isInRange(comp.dueDate);
   });
 

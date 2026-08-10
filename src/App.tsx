@@ -114,7 +114,10 @@ export default function App() {
         item.accountNo === '300041984370019' ||
         item.loanName.toLowerCase().includes('deutsche bank') ||
         item.loanName.toLowerCase().includes('mercedes-benz') ||
-        item.accountNo === 'SARASWAT-AL-882041'
+        item.accountNo === 'SARASWAT-AL-882041' ||
+        item.loanName.toLowerCase().includes('sidbi') ||
+        item.loanName.includes('1412070') ||
+        item.accountNo.includes('1412070')
       ) {
         return { ...item, status: 'Paid' as const };
       }
@@ -241,7 +244,22 @@ export default function App() {
       }
 
       if (liveData.emis && liveData.emis.length > 0) {
-        const cleanEmis = deduplicateEmis(liveData.emis);
+        const ensuredEmis = liveData.emis.map((item) => {
+          if (
+            item.loanName.includes('300041984370019') ||
+            item.accountNo === '300041984370019' ||
+            item.loanName.toLowerCase().includes('deutsche bank') ||
+            item.loanName.toLowerCase().includes('mercedes-benz') ||
+            item.accountNo === 'SARASWAT-AL-882041' ||
+            item.loanName.toLowerCase().includes('sidbi') ||
+            item.loanName.includes('1412070') ||
+            item.accountNo.includes('1412070')
+          ) {
+            return { ...item, status: 'Paid' as const };
+          }
+          return item;
+        });
+        const cleanEmis = deduplicateEmis(ensuredEmis);
         setEmis(cleanEmis);
         localStorage.setItem('llabdhi_emis_v3', JSON.stringify(cleanEmis));
         updatedEmisCount = cleanEmis.length;
@@ -297,9 +315,24 @@ export default function App() {
       localStorage.setItem('llabdhi_creditors_v5', JSON.stringify(filteredCreditors));
     }
     if (newData.emis) {
-      const cleanEmis = deduplicateEmis(newData.emis);
+      const ensuredEmis = newData.emis.map((item) => {
+        if (
+          item.loanName.includes('300041984370019') ||
+          item.accountNo === '300041984370019' ||
+          item.loanName.toLowerCase().includes('deutsche bank') ||
+          item.loanName.toLowerCase().includes('mercedes-benz') ||
+          item.accountNo === 'SARASWAT-AL-882041' ||
+          item.loanName.toLowerCase().includes('sidbi') ||
+          item.loanName.includes('1412070') ||
+          item.accountNo.includes('1412070')
+        ) {
+          return { ...item, status: 'Paid' as const };
+        }
+        return item;
+      });
+      const cleanEmis = deduplicateEmis(ensuredEmis);
       setEmis(cleanEmis);
-      localStorage.setItem('llabdhi_emis_v2', JSON.stringify(cleanEmis));
+      localStorage.setItem('llabdhi_emis_v3', JSON.stringify(cleanEmis));
     }
     if (newData.compliance) {
       setCompliance(newData.compliance);

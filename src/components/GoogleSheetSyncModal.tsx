@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { DebtorItem, CreditorItem, EmiItem, ComplianceItem, AppSettings, ItemStatus } from '../types';
 import { deduplicateEmis, getTodayStr } from '../utils/calculations';
-import { DEFAULT_SHEET_URL, normalizeSheetDate } from '../utils/googleSheetSync';
+import { DEFAULT_SHEET_URL, normalizeSheetDate, isPaidStatus, isRowPaid } from '../utils/googleSheetSync';
 
 interface GoogleSheetSyncModalProps {
   isOpen: boolean;
@@ -280,13 +280,13 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
               const rawInvDate = getFieldVal(r, ['invoiceDate', 'invoice date', 'invoice_date', 'date', 'inv date']);
               const normalizedInvDate = normalizeSheetDate(rawInvDate) || '2026-07-01';
               
-              const rawStatus = getFieldVal(r, ['status', 'payment status', 'state']).toLowerCase();
-              const paymentDateVal = getFieldVal(r, ['filing / payment date', 'filing/payment date', 'payment date', 'filing date', 'payment_date']);
+              const rawStatus = getFieldVal(r, ['status', 'payment status', 'state', 'paid', 'is paid', 'checkbox', 'select', 'paid?', 'done', 'check', 'status paid']).toLowerCase();
+              const paymentDateVal = getFieldVal(r, ['filing / payment date', 'filing/payment date', 'payment date', 'filing date', 'payment_date', 'paid date']);
               
               let computedStatus: 'Pending' | 'Overdue' | 'Paid' = 'Pending';
-              if (rawStatus === 'paid' || rawStatus === 'true' || rawStatus === 'checked' || paymentDateVal.trim() !== '') {
+              if (isPaidStatus(rawStatus, paymentDateVal)) {
                 computedStatus = 'Paid';
-              } else if (rawStatus === 'overdue' || (normalizedDueDate && normalizedDueDate < getTodayStr())) {
+              } else if (rawStatus.includes('overdue') || (normalizedDueDate && normalizedDueDate < getTodayStr())) {
                 computedStatus = 'Overdue';
               } else {
                 computedStatus = 'Pending';
@@ -320,16 +320,33 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
             });
 
           const newCreditors: CreditorItem[] = (fetchedResults['Creditors'] || [])
-            .map((r: any, idx: number) => ({
-              id: getFieldVal(r, ['id', 'cre_id', 'creditor_id', 'bill_id']) || `CRE-${300 + idx}`,
-              vendorEntity: extractCreditorName(r),
-              invoiceRef: getFieldVal(r, ['invoiceRef', 'invoice ref', 'invoice_ref', 'invoice', 'inv no', 'bill ref']) || `BILL-${100 + idx}`,
-              dueDate: getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']) || '2026-04-01',
-              amount: parseFloat((getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount']) || '0').replace(/[^0-9.]/g, '')) || 0,
-              narration: getFieldVal(r, ['narration', 'narration/details', 'narration / details', 'narration/description', 'category', 'type', 'head', 'vendor category', 'particulars', 'description', 'notes', 'remarks', 'purpose']) || 'Raw Material Supply',
-              status: (getFieldVal(r, ['status', 'payment status', 'state']) as any) || 'Pending',
-              notes: getFieldVal(r, ['notes', 'remarks', 'description', 'details']),
-            }))
+            .map((r: any, idx: number) => {
+              const rawStatus = getFieldVal(r, ['status', 'payment status', 'state', 'paid', 'is paid', 'checkbox', 'done', 'paid?', 'select', 'check']).toLowerCase();
+              const paymentDateVal = getFieldVal(r, ['filing / payment date', 'filing/payment date', 'payment date', 'filing date', 'payment_date', 'paid date']);
+              const rawDueDate = getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']);
+              const normalizedDueDate = normalizeSheetDate(rawDueDate) || '2026-04-01';
+
+              let computedStatus: 'Pending' | 'Overdue' | 'Paid' = 'Pending';
+              if (isPaidStatus(rawStatus, paymentDateVal)) {
+                computedStatus = 'Paid';
+              } else if (rawStatus.includes('overdue') || (normalizedDueDate && normalizedDueDate < getTodayStr())) {
+                computedStatus = 'Overdue';
+              } else {
+                computedStatus = 'Pending';
+              }
+
+              return {
+                id: getFieldVal(r, ['id', 'cre_id', 'creditor_id', 'bill_id']) || `CRE-${300 + idx}`,
+                vendorEntity: extractCreditorName(r),
+                invoiceRef: getFieldVal(r, ['invoiceRef', 'invoice ref', 'invoice_ref', 'invoice', 'inv no', 'bill ref']) || `BILL-${100 + idx}`,
+                dueDate: normalizedDueDate,
+                amount: parseFloat((getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount']) || '0').replace(/[^0-9.]/g, '')) || 0,
+                narration: getFieldVal(r, ['narration', 'narration/details', 'narration / details', 'narration/description', 'category', 'type', 'head', 'vendor category', 'particulars', 'description', 'notes', 'remarks', 'purpose']) || 'Raw Material Supply',
+                status: computedStatus,
+                paymentDate: paymentDateVal || undefined,
+                notes: getFieldVal(r, ['notes', 'remarks', 'description', 'details']),
+              };
+            })
             .filter(
               (c: CreditorItem) =>
                 c.id !== 'CRE-301' &&
@@ -371,16 +388,7 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
               ]);
 
               let computedStatus: ItemStatus = 'Upcoming';
-              if (
-                rawStatus === 'paid' ||
-                rawStatus === 'true' ||
-                rawStatus === 'checked' ||
-                rawStatus === 'yes' ||
-                rawStatus === '1' ||
-                rawStatus === 'x' ||
-                rawStatus === 'v' ||
-                lastPayDateVal.trim() !== ''
-              ) {
+              if (isRowPaid(r, rawStatus, lastPayDateVal)) {
                 computedStatus = 'Paid';
               } else if (rawStatus === 'overdue') {
                 computedStatus = 'Overdue';
@@ -411,7 +419,7 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
                 monthlyEmi: parseFloat((getFieldVal(r, ['monthlyEmi', 'monthly emi', 'monthly_emi', 'emi amount', 'emi', 'installment']) || '0').replace(/[^0-9.]/g, '')) || 50000,
                 dueDayOfMonth: parseInt((getFieldVal(r, ['dueDayOfMonth', 'due day', 'due_day', 'day']) || '5').replace(/[^0-9]/g, '')) || 5,
                 nextDueDate: normalizedNextDueDate,
-                status: computedStatus,
+                status: isRowPaid(r, rawStatus, lastPayDateVal) ? 'Paid' : computedStatus,
                 lastPaymentDate: lastPayDateVal || undefined,
                 lastPaymentRef: getFieldVal(r, ['lastPaymentRef', 'last payment ref', 'last_payment_ref', 'payment ref', 'reference']),
               };
@@ -553,13 +561,13 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
               const rawInvDate = getFieldVal(r, ['invoiceDate', 'invoice date', 'invoice_date', 'date', 'inv date']);
               const normalizedInvDate = normalizeSheetDate(rawInvDate) || '2026-07-01';
               
-              const rawStatus = getFieldVal(r, ['status', 'payment status', 'state']).toLowerCase();
-              const paymentDateVal = getFieldVal(r, ['filing / payment date', 'filing/payment date', 'payment date', 'filing date', 'payment_date']);
+              const rawStatus = getFieldVal(r, ['status', 'payment status', 'state', 'paid', 'is paid', 'checkbox', 'select', 'paid?', 'done', 'check', 'status paid']).toLowerCase();
+              const paymentDateVal = getFieldVal(r, ['filing / payment date', 'filing/payment date', 'payment date', 'filing date', 'payment_date', 'paid date']);
               
               let computedStatus: 'Pending' | 'Overdue' | 'Paid' = 'Pending';
-              if (rawStatus === 'paid' || rawStatus === 'true' || rawStatus === 'checked' || paymentDateVal.trim() !== '') {
+              if (isPaidStatus(rawStatus, paymentDateVal)) {
                 computedStatus = 'Paid';
-              } else if (rawStatus === 'overdue' || (normalizedDueDate && normalizedDueDate < getTodayStr())) {
+              } else if (rawStatus.includes('overdue') || (normalizedDueDate && normalizedDueDate < getTodayStr())) {
                 computedStatus = 'Overdue';
               } else {
                 computedStatus = 'Pending';
@@ -601,16 +609,33 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
           });
         } else if (targetCategory === 'creditors') {
           const newCreditors: CreditorItem[] = rows
-            .map((r, idx) => ({
-              id: getFieldVal(r, ['id', 'cre_id', 'creditor_id', 'bill_id']) || `CRE-${500 + idx}`,
-              vendorEntity: extractCreditorName(r),
-              invoiceRef: getFieldVal(r, ['invoiceRef', 'invoice ref', 'invoice_ref', 'invoice', 'inv no', 'bill ref']) || `BILL-${100 + idx}`,
-              dueDate: getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']) || '2026-04-01',
-              amount: parseFloat((getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount']) || '0').replace(/[^0-9.]/g, '')) || 0,
-              narration: getFieldVal(r, ['narration', 'narration/details', 'narration / details', 'narration/description', 'category', 'type', 'head', 'vendor category', 'particulars', 'description', 'notes', 'remarks', 'purpose']) || 'Raw Material Supply',
-              status: (getFieldVal(r, ['status', 'payment status', 'state']) as any) || 'Pending',
-              notes: getFieldVal(r, ['notes', 'remarks', 'description', 'details']),
-            }))
+            .map((r, idx) => {
+              const rawStatus = getFieldVal(r, ['status', 'payment status', 'state', 'paid', 'is paid', 'checkbox', 'done', 'paid?', 'select', 'check']).toLowerCase();
+              const paymentDateVal = getFieldVal(r, ['filing / payment date', 'filing/payment date', 'payment date', 'filing date', 'payment_date', 'paid date']);
+              const rawDueDate = getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']);
+              const normalizedDueDate = normalizeSheetDate(rawDueDate) || '2026-04-01';
+
+              let computedStatus: 'Pending' | 'Overdue' | 'Paid' = 'Pending';
+              if (isPaidStatus(rawStatus, paymentDateVal)) {
+                computedStatus = 'Paid';
+              } else if (rawStatus.includes('overdue') || (normalizedDueDate && normalizedDueDate < getTodayStr())) {
+                computedStatus = 'Overdue';
+              } else {
+                computedStatus = 'Pending';
+              }
+
+              return {
+                id: getFieldVal(r, ['id', 'cre_id', 'creditor_id', 'bill_id']) || `CRE-${500 + idx}`,
+                vendorEntity: extractCreditorName(r),
+                invoiceRef: getFieldVal(r, ['invoiceRef', 'invoice ref', 'invoice_ref', 'invoice', 'inv no', 'bill ref']) || `BILL-${100 + idx}`,
+                dueDate: normalizedDueDate,
+                amount: parseFloat((getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount']) || '0').replace(/[^0-9.]/g, '')) || 0,
+                narration: getFieldVal(r, ['narration', 'narration/details', 'narration / details', 'narration/description', 'category', 'type', 'head', 'vendor category', 'particulars', 'description', 'notes', 'remarks', 'purpose']) || 'Raw Material Supply',
+                status: computedStatus,
+                paymentDate: paymentDateVal || undefined,
+                notes: getFieldVal(r, ['notes', 'remarks', 'description', 'details']),
+              };
+            })
             .filter(
               (c: CreditorItem) =>
                 c.id !== 'CRE-301' &&
@@ -659,16 +684,7 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
               ]);
 
               let computedStatus: ItemStatus = 'Upcoming';
-              if (
-                rawStatus === 'paid' ||
-                rawStatus === 'true' ||
-                rawStatus === 'checked' ||
-                rawStatus === 'yes' ||
-                rawStatus === '1' ||
-                rawStatus === 'x' ||
-                rawStatus === 'v' ||
-                lastPayDateVal.trim() !== ''
-              ) {
+              if (isRowPaid(r, rawStatus, lastPayDateVal)) {
                 computedStatus = 'Paid';
               } else if (rawStatus === 'overdue') {
                 computedStatus = 'Overdue';
@@ -699,7 +715,7 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
                 monthlyEmi: parseFloat((getFieldVal(r, ['monthlyEmi', 'monthly emi', 'monthly_emi', 'emi amount', 'emi', 'installment']) || '0').replace(/[^0-9.]/g, '')) || 50000,
                 dueDayOfMonth: parseInt((getFieldVal(r, ['dueDayOfMonth', 'due day', 'due_day', 'day']) || '5').replace(/[^0-9]/g, '')) || 5,
                 nextDueDate: normalizedNextDueDate,
-                status: computedStatus,
+                status: isRowPaid(r, rawStatus, lastPayDateVal) ? 'Paid' : computedStatus,
                 lastPaymentDate: lastPayDateVal || undefined,
                 lastPaymentRef: getFieldVal(r, ['lastPaymentRef', 'last payment ref', 'last_payment_ref', 'payment ref', 'reference']),
               };
@@ -717,14 +733,8 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
           const newCompliance: ComplianceItem[] = rows
             .map((r, idx) => {
               const exactTitle = extractComplianceTitle(r);
-              const rawStatus = String(getFieldVal(r, ['status', 'state', 'filing status', 'compliance status']) || 'Pending').trim();
-              let cleanStatus: 'Pending' | 'Filed' | 'Overdue' = 'Pending';
-              if (/filed|done|completed|paid|cleared/i.test(rawStatus)) {
-                cleanStatus = 'Filed';
-              } else if (/overdue|delay|delayed/i.test(rawStatus)) {
-                cleanStatus = 'Overdue';
-              }
-
+              const rawStatus = String(getFieldVal(r, ['status', 'state', 'filing status', 'compliance status', 'paid', 'is paid', 'checkbox', 'filed', 'done', 'check']) || 'Pending').trim();
+              const filingDateVal = getFieldVal(r, ['filingDate', 'filing date', 'filing_date', 'filed on', 'payment date', 'payment_date', 'paid date']);
               const rawDueDate = getFieldVal(r, [
                 'dueDate',
                 'due date',
@@ -739,6 +749,12 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
                 'filing due date',
               ]);
               const normalizedDueDate = normalizeSheetDate(rawDueDate) || '2026-08-20';
+              let cleanStatus: 'Pending' | 'Filed' | 'Overdue' = 'Pending';
+              if (isPaidStatus(rawStatus, filingDateVal) || /filed|done|completed|paid|cleared/i.test(rawStatus)) {
+                cleanStatus = 'Filed';
+              } else if (/overdue|delay|delayed/i.test(rawStatus) || (normalizedDueDate && normalizedDueDate < getTodayStr())) {
+                cleanStatus = 'Overdue';
+              }
 
               return {
                 id: getFieldVal(r, ['id', 'cmp_id', 'compliance_id']) || `CMP-${500 + idx}`,

@@ -422,9 +422,9 @@ export const INITIAL_EMIS: EmiItem[] = [
     monthlyEmi: 420000,
     dueDayOfMonth: 15,
     nextDueDate: '2026-08-15',
-    status: 'Upcoming',
-    lastPaymentDate: '2026-07-15',
-    lastPaymentRef: 'NEFT/SIDBI/JUL15/1092',
+    status: 'Paid',
+    lastPaymentDate: '2026-08-05',
+    lastPaymentRef: 'NEFT/SIDBI/AUG05/1092',
   },
   {
     id: 'EMI-304',
