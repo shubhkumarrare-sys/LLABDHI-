@@ -1,8 +1,6 @@
 import React from 'react';
 import {
   LayoutDashboard,
-  Users,
-  Building2,
   Car,
   FileCheck2,
   Code2,
@@ -25,6 +23,8 @@ interface SidebarProps {
   refreshStatusMessage?: string | null;
   openGoogleSheetSync?: () => void;
   onLogout?: () => void;
+  lastUpdatedTime?: string;
+  isLiveConnected?: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -35,8 +35,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile,
   onRefreshSheet,
   isRefreshingSheet,
+  refreshStatusMessage,
   openGoogleSheetSync,
   onLogout,
+  lastUpdatedTime,
+  isLiveConnected = true,
 }) => {
   const navItems = [
     {
@@ -46,23 +49,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: LayoutDashboard,
     },
     {
-      id: 'debtors',
-      label: 'Debtors (AR)',
-      sublabel: 'Receivables & Aging',
-      icon: Users,
-      badge: overdueCount > 0 ? overdueCount : undefined,
-      badgeVariant: 'danger' as const,
-    },
-    {
-      id: 'creditors',
-      label: 'Creditors (AP)',
-      sublabel: 'Payables & Raw Materials',
-      icon: Building2,
-    },
-    {
       id: 'emis',
       label: 'Loans & EMIs',
-      sublabel: 'Car Loans & Vehicles',
+      sublabel: 'Facilities & Schedule',
       icon: Car,
     },
     {
@@ -70,17 +59,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'LLP Compliance',
       sublabel: 'GST, MCA V3 & TDS',
       icon: FileCheck2,
+      badge: overdueCount > 0 ? overdueCount : undefined,
+      badgeVariant: 'danger' as const,
     },
     {
       id: 'scripting',
       label: 'Apps Script & Logs',
-      sublabel: 'Google Calendar & .ics Export',
+      sublabel: 'Calendar Sync & .ics Export',
       icon: Code2,
     },
     {
       id: 'settings',
-      label: 'Settings & Backup',
-      sublabel: 'Thresholds & JSON Export',
+      label: 'Settings & Sync',
+      sublabel: 'Thresholds & Sheet Connection',
       icon: Settings,
     },
   ];
@@ -108,7 +99,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span className="font-extrabold text-sm tracking-tight text-[#171B3A]">
                 LLABDHI OPS
               </span>
-              <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse" />
+              <span className={`w-1.5 h-1.5 rounded-full ${isLiveConnected ? 'bg-[#10B981] animate-pulse' : 'bg-rose-500'}`} />
             </div>
             <p className="text-[10px] text-[#7D8499] font-medium leading-tight">
               Executive Node • Manufacturing LLP
@@ -129,12 +120,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Live Google Sheet Status Banner */}
       <div className="px-5 py-3 border-b border-[#E8EBF2] bg-[#F7F9FC]">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping inline-block" />
-            <span className="text-[11px] font-semibold text-[#171B3A]">Live Sheet Sync</span>
+          <div className="flex items-center space-x-2 min-w-0">
+            <span className={`w-2 h-2 rounded-full shrink-0 ${isLiveConnected ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+            <div className="truncate">
+              <span className="text-[11px] font-semibold text-[#171B3A] block leading-tight">
+                {isLiveConnected ? '● Live Connected' : '● Connection Issue'}
+              </span>
+              <span className="text-[10px] text-[#7D8499] block leading-tight truncate">
+                {lastUpdatedTime ? `Updated ${lastUpdatedTime}` : 'Polling every 15s'}
+              </span>
+            </div>
           </div>
 
-          <div className="flex items-center space-x-1">
+          <div className="flex items-center space-x-1 shrink-0">
             {onRefreshSheet && (
               <button
                 onClick={onRefreshSheet}
@@ -253,7 +251,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <ShieldCheck className="w-3 h-3 text-[#10B981]" />
             <span>Secure 256-bit</span>
           </span>
-          <span>v3.4.0</span>
+          <span>Google Sheet Live</span>
         </div>
       </div>
     </div>

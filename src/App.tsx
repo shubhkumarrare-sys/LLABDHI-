@@ -1,9 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { CashFlowCommandCenter } from './components/CashFlowCommandCenter';
-import { DebtorsManager } from './components/DebtorsManager';
-import { CreditorsManager } from './components/CreditorsManager';
 import { EmiManager } from './components/EmiManager';
 import { ComplianceManager } from './components/ComplianceManager';
 import { AppsScriptAutomation } from './components/AppsScriptAutomation';
@@ -13,31 +11,27 @@ import { LoginPage } from './components/LoginPage';
 import { GoogleSheetSyncModal } from './components/GoogleSheetSyncModal';
 
 import {
-  DebtorItem,
-  CreditorItem,
   EmiItem,
   ComplianceItem,
   CalendarLogItem,
   EmailLogItem,
   AppSettings,
-  ClientOverdueGroup,
   GstPayableState,
 } from './types';
 
 import {
   INITIAL_SETTINGS,
-  INITIAL_DEBTORS,
-  INITIAL_CREDITORS,
   INITIAL_EMIS,
   INITIAL_COMPLIANCE,
   INITIAL_CALENDAR_LOGS,
   INITIAL_EMAIL_LOGS,
   INITIAL_GST_PAYABLE,
 } from './data/initialData';
-import { deduplicateEmis } from './utils/calculations';
-import { fetchLiveSheetData } from './utils/googleSheetSync';
 
-import { Sparkles, X, Copy, Check, Send, Mail } from 'lucide-react';
+import {
+  syncAllSheetData,
+  EmiScheduleRow,
+} from './services/googleSheetService';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -47,511 +41,286 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState('dashboard');
 
-  // Helper to check excluded debtors (DEB-284 to DEB-296)
-  const isExcludedDebtor = (d: DebtorItem) => {
-    if (!d || !d.id) return true;
-    const match = String(d.id).trim().toUpperCase().match(/^DEB-(\d+)$/);
-    if (match) {
-      const num = parseInt(match[1], 10);
-      if (num >= 284 && num <= 296) return true;
-    }
-    return false;
-  };
-
-  // Master Operational State (LLABDHI OPS NODE) with localStorage persistence
-  const [debtors, setDebtors] = useState<DebtorItem[]>(() => {
-    const saved = localStorage.getItem('llabdhi_debtors_v3');
-    if (saved) {
-      try {
-        const parsed: DebtorItem[] = JSON.parse(saved);
-        return parsed.filter((d) => !isExcludedDebtor(d));
-      } catch {
-        return INITIAL_DEBTORS.filter((d) => !isExcludedDebtor(d));
-      }
-    }
-    // Check v2 fallback
-    const savedV2 = localStorage.getItem('llabdhi_debtors_v2');
-    if (savedV2) {
-      try {
-        const parsed: DebtorItem[] = JSON.parse(savedV2);
-        return parsed.filter((d) => !isExcludedDebtor(d));
-      } catch {
-        return INITIAL_DEBTORS.filter((d) => !isExcludedDebtor(d));
-      }
-    }
-    return INITIAL_DEBTORS.filter((d) => !isExcludedDebtor(d));
-  });
-  const [creditors, setCreditors] = useState<CreditorItem[]>(() => {
-    const saved = localStorage.getItem('llabdhi_creditors_v6') || localStorage.getItem('llabdhi_creditors_v5');
-    if (saved) {
-      try {
-        const parsed: CreditorItem[] = JSON.parse(saved);
-        const filtered = parsed
-          .filter(
-            (c) =>
-              c.vendorEntity &&
-              c.vendorEntity.trim() !== '' &&
-              c.vendorEntity.toLowerCase() !== 'creditor entity' &&
-              c.vendorEntity.toLowerCase() !== 'vendor entity'
-          )
-          .map((c: any) => ({
-            ...c,
-            narration: c.narration || c.category || 'Raw Material Supply',
-          }));
-        return filtered.length > 0 ? filtered : INITIAL_CREDITORS;
-      } catch {
-        return INITIAL_CREDITORS;
-      }
-    }
-    return INITIAL_CREDITORS;
-  });
+  // Master Operational State strictly initialized from cached storage or seed
   const [emis, setEmis] = useState<EmiItem[]>(() => {
-    const saved = localStorage.getItem('llabdhi_emis_v3') || localStorage.getItem('llabdhi_emis_v2');
-    const list: EmiItem[] = saved ? JSON.parse(saved) : INITIAL_EMIS;
-    const updatedList = list.map((item) => {
-      if (
-        item.loanName.includes('300041984370019') ||
-        item.accountNo === '300041984370019' ||
-        item.loanName.toLowerCase().includes('deutsche bank') ||
-        item.loanName.toLowerCase().includes('mercedes-benz') ||
-        item.accountNo === 'SARASWAT-AL-882041' ||
-        item.loanName.toLowerCase().includes('sidbi') ||
-        item.loanName.includes('1412070') ||
-        item.accountNo.includes('1412070')
-      ) {
-        return { ...item, status: 'Paid' as const };
+    const saved = localStorage.getItem('llabdhi_emis_v4') || localStorage.getItem('llabdhi_emis_v3');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return INITIAL_EMIS;
       }
-      return item;
-    });
-
-    const hasHdfcShaileja = updatedList.some(
-      (e) => e.loanName.toLowerCase().includes('shaileja') || e.accountNo === 'HDFC-SHAILEJA-88219'
-    );
-    if (!hasHdfcShaileja) {
-      updatedList.push({
-        id: 'EMI-304',
-        loanName: 'HDFC - SHAILEJA',
-        vehicleModel: 'HDFC Loan Facility - SHAILEJA',
-        lenderBank: 'HDFC Bank Ltd',
-        accountNo: 'HDFC-SHAILEJA-88219',
-        totalLoanValue: 3500000,
-        remainingBalance: 2100000,
-        monthlyEmi: 125000,
-        dueDayOfMonth: 11,
-        nextDueDate: '2026-08-11',
-        status: 'Upcoming',
-        lastPaymentDate: '2026-07-11',
-        lastPaymentRef: 'ACH/HDFC/JUL11/8812',
-      });
     }
-
-    return deduplicateEmis(updatedList);
+    return INITIAL_EMIS;
   });
+
+  const [emiSchedule, setEmiSchedule] = useState<EmiScheduleRow[]>(() => {
+    const saved = localStorage.getItem('llabdhi_emi_schedule_v4');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
+
   const [compliance, setCompliance] = useState<ComplianceItem[]>(() => {
-    const saved = localStorage.getItem('llabdhi_compliance_v3') || localStorage.getItem('llabdhi_compliance_v2');
-    const list: ComplianceItem[] = saved && JSON.parse(saved).length > 0 ? JSON.parse(saved) : INITIAL_COMPLIANCE;
-    const hasEsic = list.some((c) => c.title.toLowerCase().includes('esic'));
-    let updatedList = list;
-    if (!hasEsic) {
-      updatedList = [
-        ...list,
-        {
-          id: 'CMP-501',
-          title: 'ESIC Contribution Return',
-          period: 'July 2026',
-          dueDate: '2026-08-13',
-          governingAuthority: 'ESIC Portal',
-          status: 'Pending',
-          estimatedAmount: 14500,
-          responsibility: 'HR / Payroll',
-        },
-      ];
-    } else {
-      updatedList = list.map((item) => {
-        if (item.title.toLowerCase().includes('esic')) {
-          return { ...item, dueDate: '2026-08-13' };
-        }
-        return item;
-      });
+    const saved = localStorage.getItem('llabdhi_compliance_v4') || localStorage.getItem('llabdhi_compliance_v3');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return INITIAL_COMPLIANCE;
+      }
     }
-    return updatedList;
+    return INITIAL_COMPLIANCE;
   });
+
   const [gstPayable, setGstPayable] = useState<GstPayableState>(() => {
-    const saved = localStorage.getItem('llabdhi_gst_payable');
-    if (!saved) return INITIAL_GST_PAYABLE;
-    try {
-      const parsed = JSON.parse(saved);
-      // Migrate old primitive number format if present
-      const mumbai = typeof parsed.mumbai === 'number' ? { payable: parsed.mumbai, receivable: 0 } : (parsed.mumbai || INITIAL_GST_PAYABLE.mumbai);
-      const chennai = typeof parsed.chennai === 'number' ? { payable: parsed.chennai, receivable: 0 } : (parsed.chennai || INITIAL_GST_PAYABLE.chennai);
-      const goa = typeof parsed.goa === 'number' ? { payable: parsed.goa, receivable: 0 } : (parsed.goa || INITIAL_GST_PAYABLE.goa);
-      return {
-        mumbai,
-        chennai,
-        goa,
-        lastUpdated: parsed.lastUpdated || new Date().toISOString().split('T')[0],
-      };
-    } catch {
-      return INITIAL_GST_PAYABLE;
-    }
+    const saved = localStorage.getItem('llabdhi_gst_payable_v1');
+    return saved ? JSON.parse(saved) : INITIAL_GST_PAYABLE;
   });
 
-  const handleUpdateGstPayable = (updated: GstPayableState) => {
-    setGstPayable(updated);
-    localStorage.setItem('llabdhi_gst_payable', JSON.stringify(updated));
-  };
-  const [calendarLogs, setCalendarLogs] = useState<CalendarLogItem[]>(INITIAL_CALENDAR_LOGS);
-  const [emailLogs, setEmailLogs] = useState<EmailLogItem[]>(INITIAL_EMAIL_LOGS);
-  const [settings, setSettings] = useState<AppSettings>(INITIAL_SETTINGS);
+  const [calendarLogs, setCalendarLogs] = useState<CalendarLogItem[]>(() => {
+    const saved = localStorage.getItem('llabdhi_cal_logs_v1');
+    return saved ? JSON.parse(saved) : INITIAL_CALENDAR_LOGS;
+  });
 
-  // Google Sheet Sync & Refresh State
+  const [emailLogs, setEmailLogs] = useState<EmailLogItem[]>(() => {
+    const saved = localStorage.getItem('llabdhi_email_logs_v1');
+    return saved ? JSON.parse(saved) : INITIAL_EMAIL_LOGS;
+  });
+
+  const [settings, setSettings] = useState<AppSettings>(() => {
+    const saved = localStorage.getItem('llabdhi_settings_v1');
+    return saved ? JSON.parse(saved) : INITIAL_SETTINGS;
+  });
+
+  // UI States
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isSheetSyncOpen, setIsSheetSyncOpen] = useState(false);
-  const [isRefreshingSheet, setIsRefreshingSheet] = useState(false);
-  const [refreshStatusMessage, setRefreshStatusMessage] = useState<string | null>(null);
-
-  // Directly refresh data from the live Google Sheet link
-  const handleRefreshSheet = async () => {
-    setIsRefreshingSheet(true);
-    setRefreshStatusMessage(null);
-    try {
-      const liveData = await fetchLiveSheetData();
-
-      let updatedDebtorsCount = 0;
-      let updatedCreditorsCount = 0;
-      let updatedEmisCount = 0;
-      let updatedComplianceCount = 0;
-
-      if (liveData.debtors && liveData.debtors.length > 0) {
-        const filtered = liveData.debtors.filter((d) => !isExcludedDebtor(d));
-        setDebtors(filtered);
-        localStorage.setItem('llabdhi_debtors_v3', JSON.stringify(filtered));
-        updatedDebtorsCount = filtered.length;
-      }
-
-      if (liveData.creditors && liveData.creditors.length > 0) {
-        const filteredCreditors = liveData.creditors.filter(
-          (c) =>
-            c.vendorEntity &&
-            c.vendorEntity.trim() !== '' &&
-            c.vendorEntity.toLowerCase() !== 'creditor entity' &&
-            c.vendorEntity.toLowerCase() !== 'vendor entity'
-        );
-        setCreditors(filteredCreditors);
-        localStorage.setItem('llabdhi_creditors_v6', JSON.stringify(filteredCreditors));
-        updatedCreditorsCount = filteredCreditors.length;
-      }
-
-      if (liveData.emis && liveData.emis.length > 0) {
-        const ensuredEmis = liveData.emis.map((item) => {
-          if (
-            item.loanName.includes('300041984370019') ||
-            item.accountNo === '300041984370019' ||
-            item.loanName.toLowerCase().includes('deutsche bank') ||
-            item.loanName.toLowerCase().includes('mercedes-benz') ||
-            item.accountNo === 'SARASWAT-AL-882041' ||
-            item.loanName.toLowerCase().includes('sidbi') ||
-            item.loanName.includes('1412070') ||
-            item.accountNo.includes('1412070')
-          ) {
-            return { ...item, status: 'Paid' as const };
-          }
-          return item;
-        });
-        const cleanEmis = deduplicateEmis(ensuredEmis);
-        setEmis(cleanEmis);
-        localStorage.setItem('llabdhi_emis_v3', JSON.stringify(cleanEmis));
-        updatedEmisCount = cleanEmis.length;
-      }
-
-      if (liveData.compliance && liveData.compliance.length > 0) {
-        setCompliance(liveData.compliance);
-        localStorage.setItem('llabdhi_compliance_v3', JSON.stringify(liveData.compliance));
-        updatedComplianceCount = liveData.compliance.length;
-      }
-
-      setRefreshStatusMessage(
-        `✅ Live Google Sheet Refreshed! Updated ${updatedDebtorsCount} Debtors, ${updatedCreditorsCount} Creditors, ${updatedEmisCount} EMIs, and ${updatedComplianceCount} Compliance items.`
-      );
-      setTimeout(() => setRefreshStatusMessage(null), 5000);
-    } catch (err: any) {
-      console.error('Error refreshing Google Sheet:', err);
-      setRefreshStatusMessage(`⚠️ Refresh failed: ${err?.message || 'Could not fetch live sheet data.'}`);
-      setTimeout(() => setRefreshStatusMessage(null), 6000);
-    } finally {
-      setIsRefreshingSheet(false);
-    }
-  };
-
-  // AI Drawer State
   const [isAiDrawerOpen, setIsAiDrawerOpen] = useState(false);
   const [aiDrawerPrompt, setAiDrawerPrompt] = useState<string | undefined>(undefined);
+  const [globalSearchQuery, setGlobalSearchQuery] = useState('');
 
-  // Apply Data Updated from Google Sheet
-  const handleApplySheetData = (newData: {
-    debtors?: DebtorItem[];
-    creditors?: CreditorItem[];
-    emis?: EmiItem[];
-    compliance?: ComplianceItem[];
-    settings?: AppSettings;
-  }) => {
-    if (newData.debtors) {
-      const filtered = newData.debtors.filter((d) => !isExcludedDebtor(d));
-      setDebtors(filtered);
-      localStorage.setItem('llabdhi_debtors_v3', JSON.stringify(filtered));
-    }
-    if (newData.creditors) {
-      const filteredCreditors = newData.creditors.filter(
-        (c) =>
-          c.vendorEntity &&
-          c.vendorEntity.trim() !== '' &&
-          c.vendorEntity.toLowerCase() !== 'creditor entity' &&
-          c.vendorEntity.toLowerCase() !== 'vendor entity'
-      );
-      setCreditors(filteredCreditors);
-      localStorage.setItem('llabdhi_creditors_v6', JSON.stringify(filteredCreditors));
-    }
-    if (newData.emis) {
-      const ensuredEmis = newData.emis.map((item) => {
-        if (
-          item.loanName.includes('300041984370019') ||
-          item.accountNo === '300041984370019' ||
-          item.loanName.toLowerCase().includes('deutsche bank') ||
-          item.loanName.toLowerCase().includes('mercedes-benz') ||
-          item.accountNo === 'SARASWAT-AL-882041' ||
-          item.loanName.toLowerCase().includes('sidbi') ||
-          item.loanName.includes('1412070') ||
-          item.accountNo.includes('1412070')
-        ) {
-          return { ...item, status: 'Paid' as const };
-        }
-        return item;
-      });
-      const cleanEmis = deduplicateEmis(ensuredEmis);
-      setEmis(cleanEmis);
-      localStorage.setItem('llabdhi_emis_v3', JSON.stringify(cleanEmis));
-    }
-    if (newData.compliance) {
-      setCompliance(newData.compliance);
-      localStorage.setItem('llabdhi_compliance_v2', JSON.stringify(newData.compliance));
-    }
-    if (newData.settings) setSettings(newData.settings);
-  };
-
-  // Email Draft Modal State
-  const [emailDraftModal, setEmailDraftModal] = useState<{
-    isOpen: boolean;
-    clientEntity: string;
-    draft: string;
-    isLoading: boolean;
-  }>({
-    isOpen: false,
-    clientEntity: '',
-    draft: '',
-    isLoading: false,
+  // Live Sheet Polling States
+  const [isRefreshingSheet, setIsRefreshingSheet] = useState(false);
+  const [refreshStatusMessage, setRefreshStatusMessage] = useState<string | null>(null);
+  const [lastSyncTime, setLastSyncTime] = useState<string>(() => {
+    return localStorage.getItem('llabdhi_last_sync_timestamp') || '';
   });
+  const [isLiveConnected, setIsLiveConnected] = useState<boolean>(true);
 
-  const [copiedDraft, setCopiedDraft] = useState(false);
-  const [sendDraftSuccess, setSendDraftSuccess] = useState(false);
+  // Core background sync executor
+  const executeSync = async (isManual = false) => {
+    if (isManual) setIsRefreshingSheet(true);
 
-  // Handlers for Debtors
-  const handleUpdateDebtor = (updated: DebtorItem) => {
-    setDebtors((prev) => {
-      const next = prev.map((d) => (d.id === updated.id ? updated : d)).filter((d) => !isExcludedDebtor(d));
-      localStorage.setItem('llabdhi_debtors_v3', JSON.stringify(next));
-      return next;
-    });
+    try {
+      const result = await syncAllSheetData();
+
+      if (result.success) {
+        if (result.compliance.length > 0) {
+          setCompliance(result.compliance);
+        }
+        if (result.emis.length > 0) {
+          setEmis(result.emis);
+        }
+        if (result.emiSchedule.length > 0) {
+          setEmiSchedule(result.emiSchedule);
+        }
+
+        setLastSyncTime(result.lastUpdated);
+        setIsLiveConnected(true);
+
+        if (isManual) {
+          setRefreshStatusMessage(`Live Google Sheet synchronized at ${result.lastUpdated}`);
+          setTimeout(() => setRefreshStatusMessage(null), 4000);
+        }
+      } else {
+        setIsLiveConnected(false);
+        if (isManual) {
+          setRefreshStatusMessage(`Sync issue: ${result.error || 'Connection failed'}`);
+          setTimeout(() => setRefreshStatusMessage(null), 5000);
+        }
+      }
+    } catch (err: any) {
+      console.warn('Sync cycle encountered error:', err);
+      setIsLiveConnected(false);
+    } finally {
+      if (isManual) setIsRefreshingSheet(false);
+    }
   };
 
-  const handleAddDebtor = (newItem: DebtorItem) => {
-    setDebtors((prev) => {
-      const next = [newItem, ...prev].filter((d) => !isExcludedDebtor(d));
-      localStorage.setItem('llabdhi_debtors_v3', JSON.stringify(next));
-      return next;
-    });
+  // 15-SECOND AUTOMATIC LIVE POLLING FROM GOOGLE SHEETS
+  // Detects changes (e.g. Done or Status checkboxes ticked/unticked) within 15-30s
+  useEffect(() => {
+    // Immediate initial sync
+    executeSync(false);
+
+    // Setup 15-second polling interval
+    const POLL_INTERVAL_MS = 15000;
+    const intervalId = setInterval(() => {
+      executeSync(false);
+    }, POLL_INTERVAL_MS);
+
+    return () => clearInterval(intervalId);
+  }, []);
+
+  const handleManualRefreshSheet = () => {
+    executeSync(true);
   };
 
-  // Handlers for Creditors
-  const handleUpdateCreditor = (updated: CreditorItem) => {
-    setCreditors((prev) => {
-      const next = prev.map((c) => (c.id === updated.id ? updated : c));
-      localStorage.setItem('llabdhi_creditors_v6', JSON.stringify(next));
-      return next;
-    });
-  };
-
-  const handleAddCreditor = (newItem: CreditorItem) => {
-    setCreditors((prev) => {
-      const next = [newItem, ...prev];
-      localStorage.setItem('llabdhi_creditors_v6', JSON.stringify(next));
-      return next;
-    });
-  };
-
-  // Handlers for EMIs
+  // Operational Handlers
   const handleUpdateEmi = (updated: EmiItem) => {
-    setEmis((prev) => {
-      const next = prev.map((e) => (e.id === updated.id ? updated : e));
-      localStorage.setItem('llabdhi_emis_v2', JSON.stringify(next));
-      return next;
-    });
+    setEmis((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
   };
 
   const handleAddEmi = (newItem: EmiItem) => {
-    setEmis((prev) => {
-      const next = [newItem, ...prev];
-      localStorage.setItem('llabdhi_emis_v2', JSON.stringify(next));
-      return next;
-    });
+    setEmis((prev) => [newItem, ...prev]);
   };
 
   const handleDeleteEmi = (id: string) => {
-    setEmis((prev) => {
-      const next = prev.filter((e) => e.id !== id);
-      localStorage.setItem('llabdhi_emis_v2', JSON.stringify(next));
-      return next;
-    });
+    setEmis((prev) => prev.filter((e) => e.id !== id));
   };
 
-  // Handlers for Compliance
   const handleUpdateCompliance = (updated: ComplianceItem) => {
-    setCompliance((prev) => {
-      const next = prev.map((c) => (c.id === updated.id ? updated : c));
-      localStorage.setItem('llabdhi_compliance_v2', JSON.stringify(next));
-      return next;
-    });
+    setCompliance((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
   };
 
   const handleAddCompliance = (newItem: ComplianceItem) => {
-    setCompliance((prev) => {
-      const next = [newItem, ...prev];
-      localStorage.setItem('llabdhi_compliance_v2', JSON.stringify(next));
-      return next;
-    });
+    setCompliance((prev) => [newItem, ...prev]);
   };
 
   const handleDeleteCompliance = (id: string) => {
-    setCompliance((prev) => {
-      const next = prev.filter((c) => c.id !== id);
-      localStorage.setItem('llabdhi_compliance_v2', JSON.stringify(next));
-      return next;
-    });
+    setCompliance((prev) => prev.filter((c) => c.id !== id));
   };
 
-  // Trigger AI Draft Payment Reminder Email for Client Group
-  const handleGenerateEmailDraftForGroup = async (group: ClientOverdueGroup) => {
-    setEmailDraftModal({
-      isOpen: true,
-      clientEntity: group.clientEntity,
-      draft: '',
-      isLoading: true,
-    });
-
-    try {
-      const res = await fetch('/api/generate-email-draft', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientEntity: group.clientEntity,
-          invoices: group.invoices,
-          totalOutstanding: group.totalOutstanding,
-          contactPerson: group.invoices[0]?.contactPerson,
-        }),
-      });
-
-      const data = await res.json();
-      setEmailDraftModal({
-        isOpen: true,
-        clientEntity: group.clientEntity,
-        draft: data.emailDraft || 'Draft could not be generated.',
-        isLoading: false,
-      });
-    } catch (err: any) {
-      setEmailDraftModal({
-        isOpen: true,
-        clientEntity: group.clientEntity,
-        draft: `Failed to generate email draft: ${err?.message || 'Server error'}`,
-        isLoading: false,
-      });
-    }
+  const handleUpdateGstPayable = (updated: GstPayableState) => {
+    setGstPayable(updated);
+    localStorage.setItem('llabdhi_gst_payable_v1', JSON.stringify(updated));
   };
 
-  // Sync Google Calendar Simulation Handler
+  // Apps Script sync & simulation
   const handleSyncCalendar = async () => {
-    try {
-      const res = await fetch('/api/sync-calendar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          emis,
-          compliance,
-          creditors,
-          debtors,
-        }),
-      });
+    const timestamp = new Date().toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
 
-      const data = await res.json();
-      if (data.success && Array.isArray(data.createdLogs)) {
-        setCalendarLogs((prev) => [...data.createdLogs, ...prev]);
-      }
-    } catch (err) {
-      console.error('Calendar sync error:', err);
-    }
+    const newLogs: CalendarLogItem[] = [];
+
+    // Log compliance
+    compliance.slice(0, 3).forEach((c, idx) => {
+      newLogs.push({
+        id: `cal-${Date.now()}-${idx}`,
+        eventTitle: `${c.governingAuthority}: ${c.title}`,
+        eventDate: c.dueDate,
+        targetTab: 'LLP_Compliance',
+        itemRefId: c.id,
+        googleEventId: `cal_event_cmp_${c.id}`,
+        syncStatus: 'Synced',
+        syncId: `SYNC-${Date.now()}-${idx}`,
+        timestamp,
+      });
+    });
+
+    // Log EMIs
+    emis.slice(0, 3).forEach((e, idx) => {
+      newLogs.push({
+        id: `cal-emi-${Date.now()}-${idx}`,
+        eventTitle: `Loan EMI: ${e.loanName}`,
+        eventDate: e.nextDueDate,
+        targetTab: 'EMIs',
+        itemRefId: e.id,
+        googleEventId: `cal_event_emi_${e.id}`,
+        syncStatus: 'Synced',
+        syncId: `SYNC-EMI-${Date.now()}-${idx}`,
+        timestamp,
+      });
+    });
+
+    setCalendarLogs((prev) => [...newLogs, ...prev].slice(0, 30));
+    localStorage.setItem('llabdhi_cal_logs_v1', JSON.stringify(newLogs));
   };
 
-  // Trigger Email Alerts Simulation Handler
   const handleTriggerEmailAlerts = async () => {
-    try {
-      const res = await fetch('/api/trigger-email-alerts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recipientEmail: settings.notificationEmail,
-          summary: `5-Day Cash Flow Alert (${new Date().toLocaleDateString()})`,
-        }),
-      });
+    const timestamp = new Date().toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
 
-      const data = await res.json();
-      if (data.success && data.log) {
-        setEmailLogs((prev) => [data.log, ...prev]);
-      }
-    } catch (err) {
-      console.error('Email alert error:', err);
+    const pendingComp = compliance.filter((c) => c.status !== 'Filed');
+    const newLogs: EmailLogItem[] = [];
+
+    if (pendingComp.length > 0) {
+      newLogs.push({
+        id: `email-${Date.now()}-1`,
+        recipient: settings.notificationEmail,
+        subject: `[Executive Action] Upcoming Compliance Deadlines (${pendingComp.length} Pending)`,
+        itemRef: pendingComp[0].id,
+        triggerType: 'Upcoming (-3d)',
+        syncId: `EMAIL-SYNC-${Date.now()}-1`,
+        timestamp,
+        status: 'Sent',
+      });
     }
+
+    const pendingEmisList = emis.filter((e) => e.status !== 'Paid');
+    if (pendingEmisList.length > 0) {
+      newLogs.push({
+        id: `email-${Date.now()}-2`,
+        recipient: settings.notificationEmail,
+        subject: `[Bank ACH Alert] Upcoming Loan EMI Installments (${pendingEmisList.length} Facilities)`,
+        itemRef: pendingEmisList[0].id,
+        triggerType: 'Due Today',
+        syncId: `EMAIL-SYNC-${Date.now()}-2`,
+        timestamp,
+        status: 'Sent',
+      });
+    }
+
+    setEmailLogs((prev) => [...newLogs, ...prev].slice(0, 30));
+    localStorage.setItem('llabdhi_email_logs_v1', JSON.stringify(newLogs));
   };
 
-  // Export Data JSON
+  // Export JSON backup
   const handleExportData = () => {
     const fullDataset = {
-      app: 'LLABDHI OPS NODE',
-      company: 'Llabdhi Manufacturing LLP',
       exportedAt: new Date().toISOString(),
-      settings,
-      debtors,
-      creditors,
       emis,
+      emiSchedule,
       compliance,
+      settings,
       calendarLogs,
       emailLogs,
     };
 
-    const blob = new Blob([JSON.stringify(fullDataset, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `LLABDHI_OPS_NODE_${new Date().toISOString().substring(0, 10)}.json`;
-    a.click();
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(fullDataset, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute('href', dataStr);
+    downloadAnchor.setAttribute(
+      'download',
+      `llabdhi-ops-backup-${new Date().toISOString().slice(0, 10)}.json`
+    );
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
   };
 
-  // Reset Data to Initial
   const handleResetData = () => {
-    if (window.confirm('Reset all LLABDHI OPS NODE data back to initial seed data?')) {
-      setDebtors(INITIAL_DEBTORS);
-      setCreditors(INITIAL_CREDITORS);
-      setEmis(INITIAL_EMIS);
-      setCompliance(INITIAL_COMPLIANCE);
-      setCalendarLogs(INITIAL_CALENDAR_LOGS);
-      setEmailLogs(INITIAL_EMAIL_LOGS);
-      setSettings(INITIAL_SETTINGS);
+    if (window.confirm('Reset local cache to Google Sheet defaults?')) {
+      localStorage.removeItem('llabdhi_compliance_v4');
+      localStorage.removeItem('llabdhi_emis_v4');
+      localStorage.removeItem('llabdhi_emi_schedule_v4');
+      executeSync(true);
     }
   };
 
@@ -560,28 +329,29 @@ export default function App() {
     setIsAuthenticated(false);
   };
 
-  const overdueCount = debtors.filter((d) => d.status === 'Overdue').length;
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [globalSearchQuery, setGlobalSearchQuery] = useState('');
-
   if (!isAuthenticated) {
     return <LoginPage onLoginSuccess={() => setIsAuthenticated(true)} />;
   }
 
+  // Count overdue or pending compliance for badge
+  const pendingComplianceCount = compliance.filter((c) => c.status !== 'Filed').length;
+
   return (
-    <div className="min-h-screen bg-[#F7F9FC] font-sans text-[#171B3A] flex">
-      {/* Modern Left Sidebar Navigation */}
+    <div className="flex h-screen bg-[#F6F8FC] overflow-x-hidden font-sans text-[#171B3A] antialiased">
+      {/* Persistent Left Sidebar */}
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        overdueCount={overdueCount}
+        overdueCount={pendingComplianceCount}
         isOpenMobile={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
-        onRefreshSheet={handleRefreshSheet}
+        onRefreshSheet={handleManualRefreshSheet}
         isRefreshingSheet={isRefreshingSheet}
         refreshStatusMessage={refreshStatusMessage}
         openGoogleSheetSync={() => setIsSheetSyncOpen(true)}
         onLogout={handleLogout}
+        lastUpdatedTime={lastSyncTime}
+        isLiveConnected={isLiveConnected}
       />
 
       {/* Main Content Area */}
@@ -593,24 +363,17 @@ export default function App() {
             setAiDrawerPrompt(undefined);
             setIsAiDrawerOpen(true);
           }}
-          onRefreshSheet={handleRefreshSheet}
+          onRefreshSheet={handleManualRefreshSheet}
           isRefreshingSheet={isRefreshingSheet}
           refreshStatusMessage={refreshStatusMessage}
-          overdueCount={overdueCount}
-          debtors={debtors}
+          overdueCount={pendingComplianceCount}
+          emis={emis}
+          compliance={compliance}
           onNavigateTab={(tab) => setActiveTab(tab)}
-          onOpenEmailDraftForGroup={(clientEntity) => {
-            const grp = {
-              clientEntity,
-              totalOutstanding: 0,
-              invoicesCount: 0,
-              maxDaysOverdue: 0,
-              invoices: debtors.filter((d) => d.clientEntity === clientEntity),
-            };
-            handleGenerateEmailDraftForGroup(grp);
-          }}
           searchQuery={globalSearchQuery}
           onSearchChange={(q) => setGlobalSearchQuery(q)}
+          lastUpdatedTime={lastSyncTime}
+          isLiveConnected={isLiveConnected}
         />
 
         {/* Refresh Status Toast */}
@@ -627,92 +390,72 @@ export default function App() {
         )}
 
         {/* Page Canvas */}
-        <main className="flex-1 px-4 sm:px-8 py-6 w-full max-w-[1600px]">
-        {activeTab === 'dashboard' && (
-          <CashFlowCommandCenter
-            debtors={debtors}
-            creditors={creditors}
-            emis={emis}
-            compliance={compliance}
-            gstPayable={gstPayable}
-            onUpdateGstPayable={handleUpdateGstPayable}
-            onNavigateTab={(tab) => setActiveTab(tab)}
-            onOpenAiDraftEmail={(clientEntity) => {
-              const grp = {
-                clientEntity,
-                totalOutstanding: 0,
-                invoicesCount: 0,
-                maxDaysOverdue: 0,
-                invoices: debtors.filter((d) => d.clientEntity === clientEntity),
-              };
-              handleGenerateEmailDraftForGroup(grp);
-            }}
-            openAiChatWithPrompt={(prompt) => {
-              setAiDrawerPrompt(prompt);
-              setIsAiDrawerOpen(true);
-            }}
-          />
-        )}
+        <main className="flex-1 px-4 sm:px-8 py-6 w-full max-w-[1600px] overflow-y-auto">
+          {activeTab === 'dashboard' && (
+            <CashFlowCommandCenter
+              emis={emis}
+              compliance={compliance}
+              gstPayable={gstPayable}
+              onUpdateGstPayable={handleUpdateGstPayable}
+              onNavigateTab={(tab) => setActiveTab(tab)}
+              openAiChatWithPrompt={(prompt) => {
+                setAiDrawerPrompt(prompt);
+                setIsAiDrawerOpen(true);
+              }}
+              onRefreshSheet={handleManualRefreshSheet}
+              isRefreshingSheet={isRefreshingSheet}
+              lastUpdatedTime={lastSyncTime}
+              isLiveConnected={isLiveConnected}
+            />
+          )}
 
-        {activeTab === 'debtors' && (
-          <DebtorsManager
-            debtors={debtors}
-            onUpdateDebtor={handleUpdateDebtor}
-            onAddDebtor={handleAddDebtor}
-            onGenerateEmailDraft={handleGenerateEmailDraftForGroup}
-          />
-        )}
+          {activeTab === 'emis' && (
+            <EmiManager
+              emis={emis}
+              emiSchedule={emiSchedule}
+              onUpdateEmi={handleUpdateEmi}
+              onAddEmi={handleAddEmi}
+              onDeleteEmi={handleDeleteEmi}
+              onRefreshSheet={handleManualRefreshSheet}
+              isRefreshingSheet={isRefreshingSheet}
+              lastUpdatedTime={lastSyncTime}
+              isLiveConnected={isLiveConnected}
+            />
+          )}
 
-        {activeTab === 'creditors' && (
-          <CreditorsManager
-            creditors={creditors}
-            onUpdateCreditor={handleUpdateCreditor}
-            onAddCreditor={handleAddCreditor}
-            onOpenSyncModal={() => setIsSheetSyncOpen(true)}
-          />
-        )}
+          {activeTab === 'compliance' && (
+            <ComplianceManager
+              complianceList={compliance}
+              onUpdateCompliance={handleUpdateCompliance}
+              onAddCompliance={handleAddCompliance}
+              onDeleteCompliance={handleDeleteCompliance}
+              onRefreshSheet={handleManualRefreshSheet}
+              isRefreshingSheet={isRefreshingSheet}
+              lastUpdatedTime={lastSyncTime}
+              isLiveConnected={isLiveConnected}
+            />
+          )}
 
-        {activeTab === 'emis' && (
-          <EmiManager
-            emis={emis}
-            onUpdateEmi={handleUpdateEmi}
-            onAddEmi={handleAddEmi}
-            onDeleteEmi={handleDeleteEmi}
-          />
-        )}
+          {activeTab === 'scripting' && (
+            <AppsScriptAutomation
+              calendarLogs={calendarLogs}
+              emailLogs={emailLogs}
+              emis={emis}
+              compliance={compliance}
+              settings={settings}
+              onSyncCalendar={handleSyncCalendar}
+              onTriggerEmailAlerts={handleTriggerEmailAlerts}
+            />
+          )}
 
-        {activeTab === 'compliance' && (
-          <ComplianceManager
-            complianceList={compliance}
-            onUpdateCompliance={handleUpdateCompliance}
-            onAddCompliance={handleAddCompliance}
-            onDeleteCompliance={handleDeleteCompliance}
-            onOpenSyncModal={() => setIsSheetSyncOpen(true)}
-            onRefreshSheet={handleRefreshSheet}
-          />
-        )}
-
-        {activeTab === 'scripting' && (
-          <AppsScriptAutomation
-            calendarLogs={calendarLogs}
-            emailLogs={emailLogs}
-            emis={emis}
-            compliance={compliance}
-            debtors={debtors}
-            settings={settings}
-            onSyncCalendar={handleSyncCalendar}
-            onTriggerEmailAlerts={handleTriggerEmailAlerts}
-          />
-        )}
-
-        {activeTab === 'settings' && (
-          <SettingsManager
-            settings={settings}
-            onUpdateSettings={(newSet) => setSettings(newSet)}
-            onExportData={handleExportData}
-            onResetData={handleResetData}
-          />
-        )}
+          {activeTab === 'settings' && (
+            <SettingsManager
+              settings={settings}
+              onUpdateSettings={(newSet) => setSettings(newSet)}
+              onExportData={handleExportData}
+              onResetData={handleResetData}
+            />
+          )}
         </main>
       </div>
 
@@ -721,8 +464,6 @@ export default function App() {
         isOpen={isAiDrawerOpen}
         onClose={() => setIsAiDrawerOpen(false)}
         dataContext={{
-          debtors,
-          creditors,
           emis,
           compliance,
           settings,
@@ -730,98 +471,18 @@ export default function App() {
         initialPrompt={aiDrawerPrompt}
       />
 
-      {/* EMAIL DRAFT GENERATION MODAL */}
-      {emailDraftModal.isOpen && (
-        <div className="fixed inset-0 bg-[#171B3A]/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-[#E8EBF2] shadow-2xl max-w-2xl w-full p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-[#E8EBF2] pb-3">
-              <div className="flex items-center space-x-2.5">
-                <div className="p-2 rounded-xl bg-[#EFF2FE] text-[#3045F5]">
-                  <Sparkles className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-extrabold text-[#171B3A]">
-                    AI Payment Reminder Email
-                  </h3>
-                  <p className="text-xs text-[#7D8499]">{emailDraftModal.clientEntity}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setEmailDraftModal({ ...emailDraftModal, isOpen: false })}
-                className="text-[#7D8499] hover:text-[#171B3A] p-1 cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {emailDraftModal.isLoading ? (
-              <div className="py-12 text-center text-[#7D8499] text-xs space-y-2">
-                <div className="w-6 h-6 border-2 border-[#3045F5] border-t-transparent rounded-full animate-spin mx-auto" />
-                <p>Generating polite payment reminder template for {emailDraftModal.clientEntity} via Gemini 3.6 Flash...</p>
-              </div>
-            ) : (
-              <div className="space-y-4 text-xs">
-                <div>
-                  <label className="block text-[11px] font-bold text-[#7D8499] uppercase tracking-wider mb-1">
-                    Generated Email Body (Editable)
-                  </label>
-                  <textarea
-                    rows={12}
-                    value={emailDraftModal.draft}
-                    onChange={(e) =>
-                      setEmailDraftModal({ ...emailDraftModal, draft: e.target.value })
-                    }
-                    className="w-full p-3 font-mono text-xs bg-[#F7F9FC] border border-[#E8EBF2] rounded-xl focus:ring-2 focus:ring-[#3045F5]/20 focus:border-[#3045F5] text-[#171B3A] leading-relaxed"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between pt-2 border-t border-[#E8EBF2]">
-                  <div className="text-[11px] text-[#7D8499]">
-                    Recipient: AP Contact ({emailDraftModal.clientEntity})
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(emailDraftModal.draft);
-                        setCopiedDraft(true);
-                        setTimeout(() => setCopiedDraft(false), 2000);
-                      }}
-                      className="px-3.5 py-2 rounded-xl border border-[#E8EBF2] hover:bg-slate-50 font-semibold text-xs inline-flex items-center space-x-1.5 cursor-pointer text-[#171B3A]"
-                    >
-                      {copiedDraft ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-[#7D8499]" />}
-                      <span>{copiedDraft ? 'Copied!' : 'Copy Text'}</span>
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setSendDraftSuccess(true);
-                        setTimeout(() => {
-                          setSendDraftSuccess(false);
-                          setEmailDraftModal({ ...emailDraftModal, isOpen: false });
-                        }, 1800);
-                      }}
-                      className="px-4 py-2 rounded-xl bg-[#3045F5] hover:bg-[#2537D6] text-white font-bold text-xs inline-flex items-center space-x-1.5 cursor-pointer shadow-xs"
-                    >
-                      {sendDraftSuccess ? <Check className="w-4 h-4" /> : <Send className="w-4 h-4" />}
-                      <span>{sendDraftSuccess ? 'Reminder Dispatched!' : 'Simulate Send Email'}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* GOOGLE SHEET SYNC MODAL */}
+      {/* Google Sheet Live Sync Connection Modal */}
       <GoogleSheetSyncModal
         isOpen={isSheetSyncOpen}
         onClose={() => setIsSheetSyncOpen(false)}
-        onApplySheetData={handleApplySheetData}
+        onApplySheetData={(data) => {
+          if (data.compliance && data.compliance.length > 0) setCompliance(data.compliance);
+          if (data.emis && data.emis.length > 0) setEmis(data.emis);
+          if (data.emiSchedule && data.emiSchedule.length > 0) setEmiSchedule(data.emiSchedule);
+          if (data.settings) setSettings(data.settings);
+          setRefreshStatusMessage('Applied Google Sheet updates to dashboard!');
+        }}
         currentData={{
-          debtors,
-          creditors,
           emis,
           compliance,
           settings,

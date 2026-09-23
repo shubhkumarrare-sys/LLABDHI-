@@ -30,7 +30,7 @@ interface AppsScriptAutomationProps {
   emailLogs: EmailLogItem[];
   emis: EmiItem[];
   compliance: ComplianceItem[];
-  debtors: DebtorItem[];
+  debtors?: DebtorItem[];
   settings: AppSettings;
   onSyncCalendar: () => Promise<void>;
   onTriggerEmailAlerts: () => Promise<void>;

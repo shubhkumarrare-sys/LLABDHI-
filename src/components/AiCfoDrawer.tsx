@@ -16,11 +16,11 @@ interface AiCfoDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   dataContext: {
-    debtors: DebtorItem[];
-    creditors: CreditorItem[];
     emis: EmiItem[];
     compliance: ComplianceItem[];
     settings: AppSettings;
+    debtors?: DebtorItem[];
+    creditors?: CreditorItem[];
   };
   initialPrompt?: string;
 }
@@ -35,14 +35,13 @@ export const AiCfoDrawer: React.FC<AiCfoDrawerProps> = ({
     {
       id: 'welcome-1',
       sender: 'ai',
-      text: 'Hello! I am your AI Chief Financial & Operations Manager for Llabdhi Manufacturing LLP.\n\nI have full access to the "LLABDHI OPS NODE" dataset across your 5-Day, 15-Day, and Monthly Cash Flow Command Centers, Debtors, Creditors, Car Loans (MG Cyberster & Mercedes-Benz), and LLP Compliance (GST, TDS, MCA). How can I assist you today?',
+      text: 'Hello! I am your AI Chief Financial & Operations Manager for Llabdhi Manufacturing LLP.\n\nI have live access to your operations dataset across Loans & EMIs (MG Cyberster, Mercedes-Benz, Deutsche Bank, SIDBI, Kotak Bank), Cash Flow Commitments (5-Day, 10-Day, 15-Day, Monthly), and LLP Statutory Compliance (GST, TDS, MCA V3). How can I assist you today?',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       suggestions: [
-        'Generate 5-Day Cash Flow Report',
-        'Generate 15-Day Cash Flow Projection',
-        'Generate Monthly (30-Day) Cash Flow Report',
-        'Analyze Overdue Receivables by Client',
+        'Analyze Upcoming Bank EMI Debits',
         'Check LLP Compliance Deadlines for GST & MCA',
+        'Generate 15-Day Committed Outflow Projections',
+        'Summary of Active Loan Facilities',
       ],
     },
   ]);

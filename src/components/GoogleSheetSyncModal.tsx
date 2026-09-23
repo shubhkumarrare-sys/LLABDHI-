@@ -13,23 +13,19 @@ import {
   Database,
   Table,
 } from 'lucide-react';
-import { DebtorItem, CreditorItem, EmiItem, ComplianceItem, AppSettings, ItemStatus } from '../types';
-import { deduplicateEmis, getTodayStr } from '../utils/calculations';
-import { DEFAULT_SHEET_URL, normalizeSheetDate, isPaidStatus, isRowPaid } from '../utils/googleSheetSync';
+import { EmiItem, ComplianceItem, AppSettings } from '../types';
+import { DEFAULT_SHEET_URL, TARGET_SPREADSHEET_ID, fetchLLPCompliance, fetchEMIs, EmiScheduleRow } from '../services/googleSheetService';
 
 interface GoogleSheetSyncModalProps {
   isOpen: boolean;
   onClose: () => void;
   onApplySheetData: (data: {
-    debtors?: DebtorItem[];
-    creditors?: CreditorItem[];
     emis?: EmiItem[];
     compliance?: ComplianceItem[];
+    emiSchedule?: EmiScheduleRow[];
     settings?: AppSettings;
   }) => void;
   currentData: {
-    debtors: DebtorItem[];
-    creditors: CreditorItem[];
     emis: EmiItem[];
     compliance: ComplianceItem[];
     settings: AppSettings;
@@ -42,17 +38,13 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
   onApplySheetData,
   currentData,
 }) => {
-  const [activeTab, setActiveTab] = useState<'urlSync' | 'pasteCsv' | 'pasteJson'>('urlSync');
   const [sheetUrl, setSheetUrl] = useState(() => localStorage.getItem('llabdhi_sheet_url') || DEFAULT_SHEET_URL);
-  const [rawText, setRawText] = useState('');
-  const [targetCategory, setTargetCategory] = useState<'all' | 'debtors' | 'creditors' | 'emis' | 'compliance'>('all');
   const [isLoading, setIsLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [parsedPreview, setParsedPreview] = useState<{
-    debtorsCount: number;
-    creditorsCount: number;
     emisCount: number;
     complianceCount: number;
+    scheduleCount: number;
     data: any;
   } | null>(null);
 
@@ -61,993 +53,173 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
   // Extract Spreadsheet ID from Google Sheet URL
   const extractSpreadsheetId = (url: string) => {
     const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
-    return match ? match[1] : null;
+    return match ? match[1] : TARGET_SPREADSHEET_ID;
   };
 
-  // Helper to extract values for dynamic key variations
-  const getFieldVal = (r: any, keys: string[]): string => {
-    if (!r) return '';
-    for (const key of Object.keys(r)) {
-      const normalizedKey = key.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-      for (const k of keys) {
-        if (normalizedKey === k.toLowerCase().replace(/[^a-z0-9]/g, '')) {
-          if (r[key] !== undefined && r[key] !== null && String(r[key]).trim() !== '') {
-            return String(r[key]).trim();
-          }
-        }
-      }
-    }
-    return '';
-  };
-
-  const extractDebtorName = (r: any): string => {
-    let val = getFieldVal(r, [
-      'clientEntity',
-      'client entity',
-      'client_entity',
-      'client',
-      'client name',
-      'entity / name',
-      'entity/name',
-      'entity',
-      'entity name',
-      'debtor',
-      'debtors',
-      'debtor name',
-      'customer',
-      'customer name',
-      'party',
-      'party name',
-      'particulars',
-      'company',
-      'name',
-    ]);
-    if (val) {
-      val = val.replace(/^(client|vendor|supplier|creditor|debtor)\s*[:|-]?\s*/i, '').trim();
-    }
-    return val || 'Debtor Entity';
-  };
-
-  const extractCreditorName = (r: any): string => {
-    let val = getFieldVal(r, [
-      'vendorEntity',
-      'vendor entity',
-      'vendor_entity',
-      'vendor',
-      'vendor name',
-      'creditor',
-      'creditors',
-      'creditor name',
-      'supplier',
-      'supplier name',
-      'party',
-      'party name',
-      'particulars',
-      'company',
-      'name',
-      'entity',
-      'entity name',
-    ]);
-    if (val) {
-      val = val.replace(/^(client|vendor|supplier|creditor|debtor)\s*[:|-]?\s*/i, '').trim();
-      const lower = val.toLowerCase();
-      if (
-        lower === 'creditor entity' ||
-        lower === 'vendor entity' ||
-        lower === 'vendor' ||
-        lower === 'supplier' ||
-        lower === 'particulars' ||
-        lower === 'entity name' ||
-        lower === 'name' ||
-        lower === 'vendor name' ||
-        lower === 'creditor name'
-      ) {
-        return '';
-      }
-    }
-    return val || '';
-  };
-
-  const extractComplianceTitle = (r: any): string => {
-    let val = getFieldVal(r, [
-      'title',
-      'compliance title',
-      'compliance_title',
-      'complianceName',
-      'compliance_name',
-      'statutory compliance',
-      'statutory_compliance',
-      'statutory compliance title',
-      'compliance',
-      'compliance head',
-      'statutory head',
-      'tax head',
-      'particulars',
-      'title / return',
-      'compliance / return',
-      'compliance return',
-      'name',
-      'head',
-      'task',
-      'nature of payment',
-      'compliance requirement',
-      'description',
-      'details',
-    ]);
-    if (val) {
-      const lower = val.trim().toLowerCase();
-      if (
-        lower === 'title' ||
-        lower === 'compliance title' ||
-        lower === 'statutory compliance' ||
-        lower === 'compliance' ||
-        lower === 'particulars' ||
-        lower === 'name' ||
-        lower === 'task' ||
-        lower === 'head' ||
-        lower === 'compliance head' ||
-        lower === 'title / return'
-      ) {
-        return '';
-      }
-      return val.trim();
-    }
-    return '';
-  };
-
-  // Helper to parse CSV rows with full quote-awareness
-  const parseCsvText = (csvText: string) => {
-    const lines = csvText.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
-    if (lines.length < 2) return [];
-
-    const parseCsvRow = (line: string): string[] => {
-      const values: string[] = [];
-      let currentVal = '';
-      let inQuotes = false;
-
-      for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        if (char === '"' || char === "'") {
-          inQuotes = !inQuotes;
-        } else if (char === ',' && !inQuotes) {
-          values.push(currentVal.trim().replace(/^["']|["']$/g, ''));
-          currentVal = '';
-        } else {
-          currentVal += char;
-        }
-      }
-      values.push(currentVal.trim().replace(/^["']|["']$/g, ''));
-      return values;
-    };
-
-    const headers = parseCsvRow(lines[0]).map((h) => h.toLowerCase().trim());
-    
-    return lines.slice(1).map((line) => {
-      const values = parseCsvRow(line);
-      const rowObj: Record<string, string> = {};
-      headers.forEach((h, idx) => {
-        rowObj[h] = values[idx] !== undefined ? values[idx] : '';
-      });
-      return rowObj;
-    });
-  };
-
-  // Process and parse incoming data
-  const handleParseAndPreview = async () => {
+  const handleFetchLive = async () => {
     setStatusMessage(null);
     setIsLoading(true);
 
     try {
-      if (activeTab === 'urlSync') {
-        if (!sheetUrl.trim()) {
-          throw new Error('Please enter a valid Google Sheet URL or published Google Apps Script URL.');
-        }
+      const spreadsheetId = extractSpreadsheetId(sheetUrl);
+      const [compData, emiData] = await Promise.all([
+        fetchLLPCompliance(spreadsheetId),
+        fetchEMIs(spreadsheetId),
+      ]);
 
-        const spreadsheetId = extractSpreadsheetId(sheetUrl);
+      setParsedPreview({
+        emisCount: emiData.activeLoans.length,
+        complianceCount: compData.length,
+        scheduleCount: emiData.allScheduleRows.length,
+        data: {
+          compliance: compData,
+          emis: emiData.activeLoans,
+          emiSchedule: emiData.allScheduleRows,
+        },
+      });
 
-        if (spreadsheetId) {
-          // Attempt to fetch public CSV exports for tabs
-          const tabsToFetch = ['Debtors', 'Creditors', 'EMIs', 'EMI', 'Loans', 'LLP_Compliance', 'Compliance'];
-          const fetchedResults: any = {};
-
-          for (const tabName of tabsToFetch) {
-            try {
-              const exportUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`;
-              const res = await fetch(exportUrl);
-              if (res.ok) {
-                const text = await res.text();
-                const parsedRows = parseCsvText(text);
-                if (parsedRows.length > 0) {
-                  fetchedResults[tabName] = parsedRows;
-                }
-              }
-            } catch (e) {
-              console.warn(`Could not fetch tab ${tabName} directly:`, e);
-            }
-          }
-
-          if (Object.keys(fetchedResults).length === 0) {
-            throw new Error(
-              'Could not automatically fetch public CSV tabs. Ensure the Google Sheet is set to "Anyone with link can view" or use the "Paste CSV/JSON" option below.'
-            );
-          }
-
-          // Transform fetched CSV rows to typed objects
-          const newDebtors: DebtorItem[] = (fetchedResults['Debtors'] || [])
-            .map((r: any, idx: number) => {
-              const rawDueDate = getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']);
-              const normalizedDueDate = normalizeSheetDate(rawDueDate) || '2026-08-01';
-              const rawInvDate = getFieldVal(r, ['invoiceDate', 'invoice date', 'invoice_date', 'date', 'inv date']);
-              const normalizedInvDate = normalizeSheetDate(rawInvDate) || '2026-07-01';
-              
-              const rawStatus = getFieldVal(r, ['status', 'payment status', 'state', 'paid', 'is paid', 'checkbox', 'select', 'paid?', 'done', 'check', 'status paid']).toLowerCase();
-              const paymentDateVal = getFieldVal(r, ['filing / payment date', 'filing/payment date', 'payment date', 'filing date', 'payment_date', 'paid date']);
-              
-              let computedStatus: 'Pending' | 'Overdue' | 'Paid' = 'Pending';
-              if (isPaidStatus(rawStatus, paymentDateVal)) {
-                computedStatus = 'Paid';
-              } else if (rawStatus.includes('overdue') || (normalizedDueDate && normalizedDueDate < getTodayStr())) {
-                computedStatus = 'Overdue';
-              } else {
-                computedStatus = 'Pending';
-              }
-
-              const rawAmount = getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount', 'total amount (₹)', 'total amount (\u20b9)']);
-              const parsedAmt = parseFloat(rawAmount.replace(/[^0-9.]/g, '')) || 0;
-
-              return {
-                id: getFieldVal(r, ['id', 'deb_id', 'debtor_id', 'invoice_id', 'sr. no', 'sr no']) || `DEB-${200 + idx}`,
-                clientEntity: extractDebtorName(r),
-                invoiceRef: getFieldVal(r, ['invoiceRef', 'invoice ref', 'invoice_ref', 'invoice / reference no', 'invoice/reference no', 'reference no', 'invoice', 'inv no', 'bill ref']) || `INV-${100 + idx}`,
-                invoiceDate: normalizedInvDate,
-                dueDate: normalizedDueDate,
-                amount: parsedAmt,
-                status: computedStatus,
-                paymentDate: paymentDateVal || undefined,
-                contactEmail: getFieldVal(r, ['contactEmail', 'contact email', 'email', 'mail']),
-                contactPerson: getFieldVal(r, ['contactPerson', 'contact person', 'contact', 'person']),
-                notes: getFieldVal(r, ['notes', 'remarks', 'description', 'details']),
-              };
-            })
-            .filter((d: DebtorItem) => {
-              if (!d || !d.clientEntity || d.clientEntity.trim() === '') return false;
-              const match = String(d.id).trim().toUpperCase().match(/^DEB-(\d+)$/);
-              if (match) {
-                const num = parseInt(match[1], 10);
-                if (num >= 284 && num <= 296) return false;
-              }
-              return true;
-            });
-
-          const newCreditors: CreditorItem[] = (fetchedResults['Creditors'] || [])
-            .map((r: any, idx: number) => {
-              const rawStatus = getFieldVal(r, ['status', 'payment status', 'state', 'paid', 'is paid', 'checkbox', 'done', 'paid?', 'select', 'check']).toLowerCase();
-              const paymentDateVal = getFieldVal(r, ['filing / payment date', 'filing/payment date', 'payment date', 'filing date', 'payment_date', 'paid date']);
-              const rawDueDate = getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']);
-              const normalizedDueDate = normalizeSheetDate(rawDueDate) || '2026-04-01';
-
-              let computedStatus: 'Pending' | 'Overdue' | 'Paid' = 'Pending';
-              if (isPaidStatus(rawStatus, paymentDateVal)) {
-                computedStatus = 'Paid';
-              } else if (rawStatus.includes('overdue') || (normalizedDueDate && normalizedDueDate < getTodayStr())) {
-                computedStatus = 'Overdue';
-              } else {
-                computedStatus = 'Pending';
-              }
-
-              return {
-                id: getFieldVal(r, ['id', 'cre_id', 'creditor_id', 'bill_id']) || `CRE-${300 + idx}`,
-                vendorEntity: extractCreditorName(r),
-                invoiceRef: getFieldVal(r, ['invoiceRef', 'invoice ref', 'invoice_ref', 'invoice', 'inv no', 'bill ref']) || `BILL-${100 + idx}`,
-                dueDate: normalizedDueDate,
-                amount: parseFloat((getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount']) || '0').replace(/[^0-9.]/g, '')) || 0,
-                narration: getFieldVal(r, ['narration', 'narration/details', 'narration / details', 'narration/description', 'category', 'type', 'head', 'vendor category', 'particulars', 'description', 'notes', 'remarks', 'purpose']) || 'Raw Material Supply',
-                status: computedStatus,
-                paymentDate: paymentDateVal || undefined,
-                notes: getFieldVal(r, ['notes', 'remarks', 'description', 'details']),
-              };
-            })
-            .filter(
-              (c: CreditorItem) =>
-                Boolean(c.vendorEntity && c.vendorEntity.trim() !== '')
-            );
-
-          const rawEmiRows = fetchedResults['EMIs'] || fetchedResults['EMI'] || fetchedResults['Loans'] || fetchedResults['Emi'] || [];
-          const newEmis: EmiItem[] = deduplicateEmis(
-            rawEmiRows.map((r: any, idx: number) => {
-              const rawStatus = getFieldVal(r, [
-                'status',
-                'state',
-                'payment status',
-                'status/paid',
-                'paid',
-                'is paid',
-                'is_paid',
-                'check',
-                'checkbox',
-                'select',
-                'sr. no',
-                'sr no',
-                'status (paid)',
-                'paid?',
-                'done',
-              ]).toLowerCase();
-
-              const lastPayDateVal = getFieldVal(r, [
-                'lastPaymentDate',
-                'last payment date',
-                'last_payment_date',
-                'last paid date',
-                'filing / payment date',
-                'filing/payment date',
-                'payment date',
-                'payment_date',
-                'paid date',
-              ]);
-
-              let computedStatus: ItemStatus = 'Upcoming';
-              if (isRowPaid(r, rawStatus, lastPayDateVal)) {
-                computedStatus = 'Paid';
-              } else if (rawStatus === 'overdue') {
-                computedStatus = 'Overdue';
-              } else if (rawStatus === 'pending') {
-                computedStatus = 'Pending';
-              } else if (rawStatus === 'upcoming') {
-                computedStatus = 'Upcoming';
-              }
-
-              const rawNextDueDate = getFieldVal(r, [
-                'nextDueDate',
-                'next due date',
-                'next_due_date',
-                'due date',
-                'due_date',
-                'pay date',
-              ]);
-              const normalizedNextDueDate = normalizeSheetDate(rawNextDueDate) || '2026-04-01';
-
-              return {
-                id: getFieldVal(r, ['id', 'emi_id', 'loan_id', 'sr. no', 'sr no']) || `EMI-${300 + idx}`,
-                loanName: getFieldVal(r, ['loanName', 'loan name', 'loan_name', 'party', 'party name', 'bank name', 'loan', 'lender', 'particulars', 'name', 'entity / name', 'entity/name']) || 'Vehicle Loan',
-                vehicleModel: getFieldVal(r, ['vehicleModel', 'vehicle model', 'vehicle_model', 'vehicle', 'model', 'details', 'description', 'particulars']) || 'Vehicle',
-                lenderBank: getFieldVal(r, ['lenderBank', 'lender bank', 'lender_bank', 'bank', 'bank name', 'lender', 'institution']) || 'Lender Bank',
-                accountNo: getFieldVal(r, ['accountNo', 'account no', 'account_no', 'loan account', 'account', 'acc no']) || `LOAN-${1000 + idx}`,
-                totalLoanValue: parseFloat((getFieldVal(r, ['totalLoanValue', 'total loan value', 'total_loan_value', 'loan amount', 'sanctioned amount', 'amount']) || '0').replace(/[^0-9.]/g, '')) || 5000000,
-                remainingBalance: parseFloat((getFieldVal(r, ['remainingBalance', 'remaining balance', 'remaining_balance', 'balance', 'principal remaining', 'outstanding']) || '0').replace(/[^0-9.]/g, '')) || 2500000,
-                monthlyEmi: parseFloat((getFieldVal(r, ['monthlyEmi', 'monthly emi', 'monthly_emi', 'emi amount', 'emi', 'installment']) || '0').replace(/[^0-9.]/g, '')) || 50000,
-                dueDayOfMonth: parseInt((getFieldVal(r, ['dueDayOfMonth', 'due day', 'due_day', 'day']) || '5').replace(/[^0-9]/g, '')) || 5,
-                nextDueDate: normalizedNextDueDate,
-                status: isRowPaid(r, rawStatus, lastPayDateVal) ? 'Paid' : computedStatus,
-                lastPaymentDate: lastPayDateVal || undefined,
-                lastPaymentRef: getFieldVal(r, ['lastPaymentRef', 'last payment ref', 'last_payment_ref', 'payment ref', 'reference']),
-              };
-            })
-          );
-
-          const rawComplianceRows =
-            fetchedResults['LLP_Compliance'] ||
-            fetchedResults['Compliance'] ||
-            fetchedResults['Statutory_Compliance'] ||
-            fetchedResults['Compliance_Calendar'] ||
-            fetchedResults['LLP Compliance'] ||
-            [];
-          const newCompliance: ComplianceItem[] = rawComplianceRows
-            .map((r: any, idx: number) => {
-              const exactTitle =
-                extractComplianceTitle(r) ||
-                getFieldVal(r, [
-                  'title',
-                  'compliance title',
-                  'compliance_title',
-                  'complianceName',
-                  'compliance_name',
-                  'statutory compliance',
-                  'statutory_compliance',
-                  'statutory compliance title',
-                  'compliance',
-                  'compliance head',
-                  'statutory head',
-                  'tax head',
-                  'particulars',
-                  'title / return',
-                  'compliance / return',
-                  'compliance return',
-                  'name',
-                  'head',
-                  'task',
-                  'nature of payment',
-                  'compliance requirement',
-                  'description',
-                  'details',
-                ]);
-              return {
-                id: getFieldVal(r, ['id', 'cmp_id', 'compliance_id']) || `CMP-${400 + idx}`,
-                title: exactTitle || 'Statutory Compliance',
-                period: getFieldVal(r, ['period', 'financial_period', 'fy', 'month', 'year']) || 'FY 2026-27',
-                dueDate: getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']) || '2026-08-20',
-                governingAuthority: (getFieldVal(r, ['governingAuthority', 'governing authority', 'authority', 'portal', 'dept', 'department']) as any) || 'GSTN Portal',
-                status: (getFieldVal(r, ['status', 'state', 'filing status']) as any) || 'Pending',
-                filingDate: getFieldVal(r, ['filingDate', 'filing date', 'filing_date', 'filed on']),
-                arnChallanRef: getFieldVal(r, ['arnChallanRef', 'arn challan ref', 'arn_challan_ref', 'arn', 'challan ref', 'ref']),
-                estimatedAmount: parseFloat((getFieldVal(r, ['estimatedAmount', 'estimated amount', 'estimated_amount', 'amount', 'tax liability', 'fees']) || '0').replace(/[^0-9.]/g, '')) || undefined,
-                responsibility: getFieldVal(r, ['responsibility', 'responsible', 'assigned to', 'person', 'consultant']),
-              };
-            })
-            .filter((c: ComplianceItem) => c.title && c.title.trim() !== '' && c.title !== 'Statutory Compliance');
-
-          const previewData = {
-            debtors: newDebtors.length > 0 ? newDebtors : currentData.debtors,
-            creditors: newCreditors.length > 0 ? newCreditors : currentData.creditors,
-            emis: newEmis.length > 0 ? newEmis : currentData.emis,
-            compliance: newCompliance.length > 0 ? newCompliance : currentData.compliance,
-            settings: currentData.settings,
-          };
-
-          setParsedPreview({
-            debtorsCount: newDebtors.length,
-            creditorsCount: newCreditors.length,
-            emisCount: newEmis.length,
-            complianceCount: newCompliance.length,
-            data: previewData,
-          });
-
-          if (sheetUrl.trim()) {
-            localStorage.setItem('llabdhi_sheet_url', sheetUrl.trim());
-          }
-
-          setStatusMessage({
-            type: 'success',
-            text: `Successfully connected to Google Sheet! Found ${newDebtors.length} Debtors, ${newCreditors.length} Creditors, ${newEmis.length} EMI Loans, and ${newCompliance.length} Compliance items ready to update live.`,
-          });
-        } else {
-          // Check if it's a direct Apps Script JSON Web App endpoint
-          const res = await fetch(sheetUrl);
-          const json = await res.json();
-
-          if (json && (json.debtors || json.creditors || json.emis || json.compliance)) {
-            setParsedPreview({
-              debtorsCount: json.debtors?.length || 0,
-              creditorsCount: json.creditors?.length || 0,
-              emisCount: json.emis?.length || 0,
-              complianceCount: json.compliance?.length || 0,
-              data: {
-                debtors: json.debtors || currentData.debtors,
-                creditors: json.creditors || currentData.creditors,
-                emis: json.emis || currentData.emis,
-                compliance: json.compliance || currentData.compliance,
-                settings: json.settings || currentData.settings,
-              },
-            });
-            setStatusMessage({
-              type: 'success',
-              text: 'Successfully fetched JSON payload from Google Apps Script Web App!',
-            });
-          } else {
-            throw new Error('Invalid URL format. Please provide a valid Google Sheet URL or Apps Script endpoint.');
-          }
-        }
-      } else if (activeTab === 'pasteJson') {
-        const parsed = JSON.parse(rawText);
-        setParsedPreview({
-          debtorsCount: parsed.debtors?.length || 0,
-          creditorsCount: parsed.creditors?.length || 0,
-          emisCount: parsed.emis?.length || 0,
-          complianceCount: parsed.compliance?.length || 0,
-          data: {
-            debtors: parsed.debtors || currentData.debtors,
-            creditors: parsed.creditors || currentData.creditors,
-            emis: parsed.emis || currentData.emis,
-            compliance: parsed.compliance || currentData.compliance,
-            settings: parsed.settings || currentData.settings,
-          },
-        });
-        setStatusMessage({
-          type: 'success',
-          text: 'Parsed JSON dataset successfully! Review and click "Apply Update".',
-        });
-      } else if (activeTab === 'pasteCsv') {
-        const rows = parseCsvText(rawText);
-        if (rows.length === 0) {
-          throw new Error('No valid CSV rows detected. Please check CSV format.');
-        }
-
-        if (targetCategory === 'debtors') {
-          const newDebtors: DebtorItem[] = rows
-            .map((r, idx) => {
-              const rawDueDate = getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']);
-              const normalizedDueDate = normalizeSheetDate(rawDueDate) || '2026-08-01';
-              const rawInvDate = getFieldVal(r, ['invoiceDate', 'invoice date', 'invoice_date', 'date', 'inv date']);
-              const normalizedInvDate = normalizeSheetDate(rawInvDate) || '2026-07-01';
-              
-              const rawStatus = getFieldVal(r, ['status', 'payment status', 'state', 'paid', 'is paid', 'checkbox', 'select', 'paid?', 'done', 'check', 'status paid']).toLowerCase();
-              const paymentDateVal = getFieldVal(r, ['filing / payment date', 'filing/payment date', 'payment date', 'filing date', 'payment_date', 'paid date']);
-              
-              let computedStatus: 'Pending' | 'Overdue' | 'Paid' = 'Pending';
-              if (isPaidStatus(rawStatus, paymentDateVal)) {
-                computedStatus = 'Paid';
-              } else if (rawStatus.includes('overdue') || (normalizedDueDate && normalizedDueDate < getTodayStr())) {
-                computedStatus = 'Overdue';
-              } else {
-                computedStatus = 'Pending';
-              }
-
-              const rawAmount = getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount', 'total amount (₹)', 'total amount (\u20b9)']);
-              const parsedAmt = parseFloat(rawAmount.replace(/[^0-9.]/g, '')) || 0;
-
-              return {
-                id: getFieldVal(r, ['id', 'deb_id', 'debtor_id', 'invoice_id', 'sr. no', 'sr no']) || `DEB-${500 + idx}`,
-                clientEntity: extractDebtorName(r),
-                invoiceRef: getFieldVal(r, ['invoiceRef', 'invoice ref', 'invoice_ref', 'invoice / reference no', 'invoice/reference no', 'reference no', 'invoice', 'inv no', 'bill ref']) || `INV-${100 + idx}`,
-                invoiceDate: normalizedInvDate,
-                dueDate: normalizedDueDate,
-                amount: parsedAmt,
-                status: computedStatus,
-                paymentDate: paymentDateVal || undefined,
-                contactEmail: getFieldVal(r, ['contactEmail', 'contact email', 'email', 'mail']),
-                contactPerson: getFieldVal(r, ['contactPerson', 'contact person', 'contact', 'person']),
-                notes: getFieldVal(r, ['notes', 'remarks', 'description', 'details']),
-              };
-            })
-            .filter((d: DebtorItem) => {
-              if (!d || !d.clientEntity || d.clientEntity.trim() === '') return false;
-              const match = String(d.id).trim().toUpperCase().match(/^DEB-(\d+)$/);
-              if (match) {
-                const num = parseInt(match[1], 10);
-                if (num >= 284 && num <= 296) return false;
-              }
-              return true;
-            });
-
-          setParsedPreview({
-            debtorsCount: newDebtors.length,
-            creditorsCount: 0,
-            emisCount: 0,
-            complianceCount: 0,
-            data: { debtors: newDebtors },
-          });
-        } else if (targetCategory === 'creditors') {
-          const newCreditors: CreditorItem[] = rows
-            .map((r, idx) => {
-              const rawStatus = getFieldVal(r, ['status', 'payment status', 'state', 'paid', 'is paid', 'checkbox', 'done', 'paid?', 'select', 'check']).toLowerCase();
-              const paymentDateVal = getFieldVal(r, ['filing / payment date', 'filing/payment date', 'payment date', 'filing date', 'payment_date', 'paid date']);
-              const rawDueDate = getFieldVal(r, ['dueDate', 'due date', 'due_date', 'due', 'pay date']);
-              const normalizedDueDate = normalizeSheetDate(rawDueDate) || '2026-04-01';
-
-              let computedStatus: 'Pending' | 'Overdue' | 'Paid' = 'Pending';
-              if (isPaidStatus(rawStatus, paymentDateVal)) {
-                computedStatus = 'Paid';
-              } else if (rawStatus.includes('overdue') || (normalizedDueDate && normalizedDueDate < getTodayStr())) {
-                computedStatus = 'Overdue';
-              } else {
-                computedStatus = 'Pending';
-              }
-
-              return {
-                id: getFieldVal(r, ['id', 'cre_id', 'creditor_id', 'bill_id']) || `CRE-${500 + idx}`,
-                vendorEntity: extractCreditorName(r),
-                invoiceRef: getFieldVal(r, ['invoiceRef', 'invoice ref', 'invoice_ref', 'invoice', 'inv no', 'bill ref']) || `BILL-${100 + idx}`,
-                dueDate: normalizedDueDate,
-                amount: parseFloat((getFieldVal(r, ['amount', 'amt', 'value', 'total', 'total amount']) || '0').replace(/[^0-9.]/g, '')) || 0,
-                narration: getFieldVal(r, ['narration', 'narration/details', 'narration / details', 'narration/description', 'category', 'type', 'head', 'vendor category', 'particulars', 'description', 'notes', 'remarks', 'purpose']) || 'Raw Material Supply',
-                status: computedStatus,
-                paymentDate: paymentDateVal || undefined,
-                notes: getFieldVal(r, ['notes', 'remarks', 'description', 'details']),
-              };
-            })
-            .filter(
-              (c: CreditorItem) =>
-                Boolean(c.vendorEntity && c.vendorEntity.trim() !== '')
-            );
-
-          setParsedPreview({
-            debtorsCount: 0,
-            creditorsCount: newCreditors.length,
-            emisCount: 0,
-            complianceCount: 0,
-            data: { creditors: newCreditors },
-          });
-        } else if (targetCategory === 'emis') {
-          const newEmis: EmiItem[] = deduplicateEmis(
-            rows.map((r, idx) => {
-              const rawStatus = getFieldVal(r, [
-                'status',
-                'state',
-                'payment status',
-                'status/paid',
-                'paid',
-                'is paid',
-                'is_paid',
-                'check',
-                'checkbox',
-                'select',
-                'sr. no',
-                'sr no',
-                'status (paid)',
-                'paid?',
-                'done',
-              ]).toLowerCase();
-
-              const lastPayDateVal = getFieldVal(r, [
-                'lastPaymentDate',
-                'last payment date',
-                'last_payment_date',
-                'last paid date',
-                'filing / payment date',
-                'filing/payment date',
-                'payment date',
-                'payment_date',
-                'paid date',
-              ]);
-
-              let computedStatus: ItemStatus = 'Upcoming';
-              if (isRowPaid(r, rawStatus, lastPayDateVal)) {
-                computedStatus = 'Paid';
-              } else if (rawStatus === 'overdue') {
-                computedStatus = 'Overdue';
-              } else if (rawStatus === 'pending') {
-                computedStatus = 'Pending';
-              } else if (rawStatus === 'upcoming') {
-                computedStatus = 'Upcoming';
-              }
-
-              const rawNextDueDate = getFieldVal(r, [
-                'nextDueDate',
-                'next due date',
-                'next_due_date',
-                'due date',
-                'due_date',
-                'pay date',
-              ]);
-              const normalizedNextDueDate = normalizeSheetDate(rawNextDueDate) || '2026-04-01';
-
-              return {
-                id: getFieldVal(r, ['id', 'emi_id', 'loan_id', 'sr. no', 'sr no']) || `EMI-${500 + idx}`,
-                loanName: getFieldVal(r, ['loanName', 'loan name', 'loan_name', 'party', 'party name', 'bank name', 'loan', 'lender', 'particulars', 'name', 'entity / name', 'entity/name']) || 'Vehicle Loan',
-                vehicleModel: getFieldVal(r, ['vehicleModel', 'vehicle model', 'vehicle_model', 'vehicle', 'model', 'details', 'description', 'particulars']) || 'Vehicle',
-                lenderBank: getFieldVal(r, ['lenderBank', 'lender bank', 'lender_bank', 'bank', 'bank name', 'lender', 'institution']) || 'Lender Bank',
-                accountNo: getFieldVal(r, ['accountNo', 'account no', 'account_no', 'loan account', 'account', 'acc no']) || `LOAN-${1000 + idx}`,
-                totalLoanValue: parseFloat((getFieldVal(r, ['totalLoanValue', 'total loan value', 'total_loan_value', 'loan amount', 'sanctioned amount', 'amount']) || '0').replace(/[^0-9.]/g, '')) || 5000000,
-                remainingBalance: parseFloat((getFieldVal(r, ['remainingBalance', 'remaining balance', 'remaining_balance', 'balance', 'principal remaining', 'outstanding']) || '0').replace(/[^0-9.]/g, '')) || 2500000,
-                monthlyEmi: parseFloat((getFieldVal(r, ['monthlyEmi', 'monthly emi', 'monthly_emi', 'emi amount', 'emi', 'installment']) || '0').replace(/[^0-9.]/g, '')) || 50000,
-                dueDayOfMonth: parseInt((getFieldVal(r, ['dueDayOfMonth', 'due day', 'due_day', 'day']) || '5').replace(/[^0-9]/g, '')) || 5,
-                nextDueDate: normalizedNextDueDate,
-                status: isRowPaid(r, rawStatus, lastPayDateVal) ? 'Paid' : computedStatus,
-                lastPaymentDate: lastPayDateVal || undefined,
-                lastPaymentRef: getFieldVal(r, ['lastPaymentRef', 'last payment ref', 'last_payment_ref', 'payment ref', 'reference']),
-              };
-            })
-          );
-
-          setParsedPreview({
-            debtorsCount: 0,
-            creditorsCount: 0,
-            emisCount: newEmis.length,
-            complianceCount: 0,
-            data: { emis: newEmis },
-          });
-        } else if (targetCategory === 'compliance') {
-          const newCompliance: ComplianceItem[] = rows
-            .map((r, idx) => {
-              const exactTitle = extractComplianceTitle(r);
-              const rawStatus = String(getFieldVal(r, ['status', 'state', 'filing status', 'compliance status', 'paid', 'is paid', 'checkbox', 'filed', 'done', 'check']) || 'Pending').trim();
-              const filingDateVal = getFieldVal(r, ['filingDate', 'filing date', 'filing_date', 'filed on', 'payment date', 'payment_date', 'paid date']);
-              const rawDueDate = getFieldVal(r, [
-                'dueDate',
-                'due date',
-                'due_date',
-                'due',
-                'pay date',
-                'date',
-                'compliance date',
-                'statutory due date',
-                'last date',
-                'target date',
-                'filing due date',
-              ]);
-              const normalizedDueDate = normalizeSheetDate(rawDueDate) || '2026-08-20';
-              let cleanStatus: 'Pending' | 'Filed' | 'Overdue' = 'Pending';
-              if (isPaidStatus(rawStatus, filingDateVal) || /filed|done|completed|paid|cleared/i.test(rawStatus)) {
-                cleanStatus = 'Filed';
-              } else if (/overdue|delay|delayed/i.test(rawStatus) || (normalizedDueDate && normalizedDueDate < getTodayStr())) {
-                cleanStatus = 'Overdue';
-              }
-
-              return {
-                id: getFieldVal(r, ['id', 'cmp_id', 'compliance_id']) || `CMP-${500 + idx}`,
-                title: exactTitle || `LLP Compliance #${idx + 1}`,
-                period: getFieldVal(r, ['period', 'financial_period', 'fy', 'month', 'year']) || 'FY 2026-27',
-                dueDate: normalizedDueDate,
-                governingAuthority: (getFieldVal(r, ['governingAuthority', 'governing authority', 'authority', 'portal', 'dept', 'department', 'gov dept', 'agency']) as any) || 'GSTN Portal',
-                status: cleanStatus,
-                filingDate: getFieldVal(r, ['filingDate', 'filing date', 'filing_date', 'filed on']),
-                arnChallanRef: getFieldVal(r, ['arnChallanRef', 'arn challan ref', 'arn_challan_ref', 'arn', 'challan ref', 'ref']),
-                estimatedAmount: parseFloat((getFieldVal(r, ['estimatedAmount', 'estimated amount', 'estimated_amount', 'amount', 'tax liability', 'fees', 'liability']) || '0').replace(/[^0-9.]/g, '')) || undefined,
-                responsibility: getFieldVal(r, ['responsibility', 'responsible', 'assigned to', 'person', 'consultant']),
-              };
-            })
-            .filter((c: ComplianceItem) => c.title && c.title.trim() !== '');
-
-          setParsedPreview({
-            debtorsCount: 0,
-            creditorsCount: 0,
-            emisCount: 0,
-            complianceCount: newCompliance.length,
-            data: { compliance: newCompliance },
-          });
-        }
-
-        setStatusMessage({
-          type: 'success',
-          text: `Parsed ${rows.length} CSV rows successfully! Click "Apply Update to Website".`,
-        });
-      }
+      setStatusMessage({
+        type: 'success',
+        text: `Successfully connected to Google Sheet! Found ${compData.length} compliance returns and ${emiData.activeLoans.length} loan facilities (${emiData.allScheduleRows.length} installments).`,
+      });
+      localStorage.setItem('llabdhi_sheet_url', sheetUrl);
     } catch (err: any) {
       console.error(err);
       setStatusMessage({
         type: 'error',
-        text: err?.message || 'Failed to process Google Sheet data.',
+        text: err?.message || 'Failed to fetch Google Sheet tabs. Please verify permissions.',
       });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleConfirmApply = () => {
-    if (parsedPreview?.data) {
-      onApplySheetData(parsedPreview.data);
-      onClose();
-    }
+  const handleApply = () => {
+    if (!parsedPreview) return;
+    onApplySheetData(parsedPreview.data);
+    onClose();
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-3xl w-full overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 bg-[#171B3A]/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl border border-[#E8EBF2] shadow-2xl max-w-2xl w-full p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
-        <div className="bg-slate-900 p-5 text-white flex items-center justify-between border-b border-slate-800">
+        <div className="flex items-center justify-between border-b border-[#E8EBF2] pb-4">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+            <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-700">
               <FileSpreadsheet className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white flex items-center space-x-2">
-                <span>Google Sheet Live Sync & Data Updater</span>
-                <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] uppercase font-mono font-bold">
-                  LLABDHI OPS NODE
-                </span>
-              </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Update the website live with records from your Llabdhi Google Sheet.
+              <h3 className="text-base font-extrabold text-[#171B3A]">
+                Google Sheet Live Sync Node
+              </h3>
+              <p className="text-xs text-[#7D8499]">
+                Continuous live synchronization with LLP_Compliance & EMIs tabs
               </p>
             </div>
           </div>
-
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-[#7D8499] hover:text-[#171B3A] hover:bg-[#F7F9FC] transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Modal Navigation Tabs */}
-        <div className="flex border-b border-slate-200 bg-slate-50 px-5 pt-3 space-x-4">
-          <button
-            onClick={() => {
-              setActiveTab('urlSync');
-              setStatusMessage(null);
-            }}
-            className={`pb-3 text-xs font-bold border-b-2 flex items-center space-x-2 transition cursor-pointer ${
-              activeTab === 'urlSync'
-                ? 'border-emerald-600 text-emerald-700'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <Link2 className="w-4 h-4" />
-            <span>Google Sheet URL / Web App Link</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setActiveTab('pasteCsv');
-              setStatusMessage(null);
-            }}
-            className={`pb-3 text-xs font-bold border-b-2 flex items-center space-x-2 transition cursor-pointer ${
-              activeTab === 'pasteCsv'
-                ? 'border-emerald-600 text-emerald-700'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <Table className="w-4 h-4" />
-            <span>Paste Google Sheet CSV</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setActiveTab('pasteJson');
-              setStatusMessage(null);
-            }}
-            className={`pb-3 text-xs font-bold border-b-2 flex items-center space-x-2 transition cursor-pointer ${
-              activeTab === 'pasteJson'
-                ? 'border-emerald-600 text-emerald-700'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            <span>Paste JSON Dataset</span>
-          </button>
+        {/* Status notice */}
+        <div className="p-3.5 bg-[#EFF2FE] border border-[#3045F5]/20 rounded-xl text-xs text-[#171B3A] space-y-1">
+          <div className="flex items-center space-x-2 font-bold text-[#3045F5]">
+            <Sparkles className="w-4 h-4" />
+            <span>Google Sheet is the Single Source of Truth</span>
+          </div>
+          <p className="text-[#7D8499] text-[11px] leading-relaxed">
+            The website automatically polls the Google Sheet every 15–30 seconds. Ticking or unticking checkboxes in the <span className="font-semibold text-[#171B3A]">LLP_Compliance</span> (Status) and <span className="font-semibold text-[#171B3A]">EMIs</span> (Done) tabs updates the website automatically with zero duplicate records.
+          </p>
         </div>
 
-        {/* Body Content */}
-        <div className="p-6 overflow-y-auto space-y-5 text-xs flex-1">
-          {statusMessage && (
-            <div
-              className={`p-3.5 rounded-xl border flex items-start space-x-2.5 text-xs ${
-                statusMessage.type === 'success'
-                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                  : 'bg-rose-50 border-rose-200 text-rose-900'
-              }`}
-            >
-              {statusMessage.type === 'success' ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-              ) : (
-                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-              )}
-              <span className="font-medium leading-relaxed">{statusMessage.text}</span>
-            </div>
-          )}
-
-          {/* TAB 1: Google Sheet URL */}
-          {activeTab === 'urlSync' && (
-            <div className="space-y-4">
-              <div>
-                <label className="block font-bold text-slate-800 mb-1.5">
-                  Enter Google Sheet URL or Apps Script Endpoint URL
-                </label>
-                <div className="relative">
-                  <input
-                    type="url"
-                    value={sheetUrl}
-                    onChange={(e) => setSheetUrl(e.target.value)}
-                    placeholder="https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 font-mono focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-                <p className="text-[11px] text-slate-500 mt-1.5 leading-normal">
-                  <strong>Tip:</strong> Ensure your Google Sheet permission is set to <em>"Anyone with the link can view"</em>. The system will auto-read tabs named <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-800 font-mono">Debtors</code> and <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-800 font-mono">Creditors</code>.
-                </p>
-              </div>
-
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-[11px] text-amber-900 space-y-1">
-                <div className="font-bold flex items-center space-x-1">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Auto-Detected Google Sheet Columns:</span>
-                </div>
-                <p>
-                  Debtors columns: <code className="font-mono">Client Entity, Invoice Ref, Invoice Date, Due Date, Amount, Status</code>
-                </p>
-                <p>
-                  Creditors columns: <code className="font-mono">Vendor Entity, Invoice Ref, Due Date, Amount, Narration, Status</code>
-                </p>
-                <p>
-                  EMIs / Loans columns: <code className="font-mono">Party Name / Loan Name, Lender Bank, Vehicle Model, Monthly EMI, Due Date, Remaining Balance</code>
-                </p>
-                <p>
-                  LLP Compliance columns: <code className="font-mono">Title / Compliance Name, Governing Authority, Due Date, Period, Status, Responsibility</code>
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 2: Paste CSV */}
-          {activeTab === 'pasteCsv' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <label className="font-bold text-slate-800">Target Table to Update:</label>
-                <select
-                  value={targetCategory}
-                  onChange={(e) => setTargetCategory(e.target.value as any)}
-                  className="px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800"
-                >
-                  <option value="debtors">Debtors (Receivables)</option>
-                  <option value="creditors">Creditors (Payables)</option>
-                  <option value="emis">EMIs & Loan Parties</option>
-                  <option value="compliance">LLP Compliance</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-800 mb-1">
-                  Copy & Paste CSV text from Google Sheet
-                </label>
-                <textarea
-                  rows={8}
-                  value={rawText}
-                  onChange={(e) => setRawText(e.target.value)}
-                  placeholder={`Client Entity, Invoice Ref, Invoice Date, Due Date, Amount, Status\nIFB Industries Ltd, LL/2026-27/0412, 2026-06-15, 2026-07-15, 1485000, Overdue\nJohnson Lifts Pvt Ltd, LL/2026-27/0488, 2026-07-02, 2026-08-01, 2150000, Pending`}
-                  className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-emerald-300 focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: Paste JSON */}
-          {activeTab === 'pasteJson' && (
-            <div className="space-y-4">
-              <div>
-                <label className="block font-bold text-slate-800 mb-1">
-                  Paste Full Website JSON Dataset
-                </label>
-                <textarea
-                  rows={8}
-                  value={rawText}
-                  onChange={(e) => setRawText(e.target.value)}
-                  placeholder={`{\n  "debtors": [...],\n  "creditors": [...],\n  "emis": [...],\n  "compliance": [...]\n}`}
-                  className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-indigo-300 focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Parsed Preview Section */}
-          {parsedPreview && (
-            <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 text-white space-y-3">
-              <h3 className="font-bold text-xs text-emerald-400 flex items-center space-x-2">
-                <Database className="w-4 h-4" />
-                <span>Google Sheet Data Update Preview</span>
-              </h3>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-[11px]">
-                <div className="bg-slate-800/80 p-2.5 rounded-lg border border-slate-700">
-                  <div className="text-slate-400">Debtors</div>
-                  <div className="text-sm font-bold text-emerald-400 mt-0.5">
-                    {parsedPreview.debtorsCount} Items
-                  </div>
-                </div>
-
-                <div className="bg-slate-800/80 p-2.5 rounded-lg border border-slate-700">
-                  <div className="text-slate-400">Creditors</div>
-                  <div className="text-sm font-bold text-indigo-400 mt-0.5">
-                    {parsedPreview.creditorsCount} Items
-                  </div>
-                </div>
-
-                <div className="bg-slate-800/80 p-2.5 rounded-lg border border-slate-700">
-                  <div className="text-slate-400">EMIs</div>
-                  <div className="text-sm font-bold text-amber-400 mt-0.5">
-                    {parsedPreview.emisCount} Loans
-                  </div>
-                </div>
-
-                <div className="bg-slate-800/80 p-2.5 rounded-lg border border-slate-700">
-                  <div className="text-slate-400">Compliance</div>
-                  <div className="text-sm font-bold text-rose-400 mt-0.5">
-                    {parsedPreview.complianceCount} Items
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+        {/* Input */}
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-[#171B3A]">
+            Google Sheet URL
+          </label>
+          <div className="relative">
+            <input
+              type="text"
+              value={sheetUrl}
+              onChange={(e) => setSheetUrl(e.target.value)}
+              placeholder="https://docs.google.com/spreadsheets/d/..."
+              className="w-full text-xs font-mono bg-[#F7F9FC] px-3.5 py-2.5 rounded-xl border border-[#E8EBF2] focus:outline-none focus:border-[#3045F5]"
+            />
+          </div>
         </div>
 
-        {/* Footer Buttons */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+        {/* Status message */}
+        {statusMessage && (
+          <div
+            className={`p-3 rounded-xl text-xs flex items-start space-x-2 ${
+              statusMessage.type === 'success'
+                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                : 'bg-rose-50 text-rose-800 border border-rose-200'
+            }`}
+          >
+            {statusMessage.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+            )}
+            <span className="font-medium">{statusMessage.text}</span>
+          </div>
+        )}
+
+        {/* Preview Summary */}
+        {parsedPreview && (
+          <div className="p-4 bg-[#F7F9FC] rounded-xl border border-[#E8EBF2] space-y-2">
+            <span className="text-[11px] font-bold text-[#7D8499] uppercase tracking-wider block">
+              Parsed Sheet Data
+            </span>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="bg-white p-3 rounded-lg border border-[#E8EBF2]">
+                <span className="text-xs text-[#7D8499] block font-medium">Compliance</span>
+                <span className="text-lg font-black text-[#171B3A]">{parsedPreview.complianceCount}</span>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-[#E8EBF2]">
+                <span className="text-xs text-[#7D8499] block font-medium">Loan Facilities</span>
+                <span className="text-lg font-black text-[#171B3A]">{parsedPreview.emisCount}</span>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-[#E8EBF2]">
+                <span className="text-xs text-[#7D8499] block font-medium">Installments</span>
+                <span className="text-lg font-black text-[#171B3A]">{parsedPreview.scheduleCount}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="flex items-center justify-end space-x-3 pt-3 border-t border-[#E8EBF2]">
           <button
-            onClick={handleParseAndPreview}
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl text-xs font-semibold text-[#7D8499] hover:bg-[#F7F9FC] transition cursor-pointer"
+          >
+            Close
+          </button>
+
+          <button
+            onClick={handleFetchLive}
             disabled={isLoading}
-            className="px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-800 font-bold text-xs inline-flex items-center space-x-2 cursor-pointer transition disabled:opacity-50"
+            className="px-4 py-2 rounded-xl bg-[#F7F9FC] hover:bg-slate-100 text-[#171B3A] border border-[#E8EBF2] text-xs font-bold flex items-center space-x-2 transition cursor-pointer"
           >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            <span>{isLoading ? 'Processing Sheet...' : 'Fetch & Preview Google Sheet'}</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            <span>{isLoading ? 'Testing...' : 'Test Connection'}</span>
           </button>
 
-          <button
-            onClick={handleConfirmApply}
-            disabled={!parsedPreview}
-            className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-300 text-white font-bold text-xs inline-flex items-center space-x-2 shadow cursor-pointer transition"
-          >
-            <span>Apply Update to Website Live</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
+          {parsedPreview && (
+            <button
+              onClick={handleApply}
+              className="px-5 py-2 rounded-xl bg-[#3045F5] hover:bg-[#2537D6] text-white text-xs font-bold transition cursor-pointer shadow-sm shadow-[#3045F5]/30"
+            >
+              Apply to Dashboard
+            </button>
+          )}
         </div>
       </div>
     </div>

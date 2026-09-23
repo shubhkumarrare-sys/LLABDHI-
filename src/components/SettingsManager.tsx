@@ -107,7 +107,7 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
               className="w-full px-3.5 py-2.5 bg-[#F7F9FC] border border-[#E8EBF2] rounded-xl text-xs font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3045F5]/20 focus:border-[#3045F5] transition"
             />
             <p className="text-[11px] text-[#7D8499] mt-1">
-              Standard credit terms (Default: Net 30 days for new debtor invoices).
+              Standard credit terms (Default: Net 30 days for scheduled operations).
             </p>
           </div>
         </div>
