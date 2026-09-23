@@ -116,15 +116,17 @@ export const AppsScriptAutomation: React.FC<AppsScriptAutomationProps> = ({
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white p-6 rounded-2xl border border-[#E8EBF2] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center space-x-2">
-            <Code2 className="w-5 h-5 text-indigo-600" />
-            <h1 className="text-xl font-bold text-slate-900">
+          <div className="flex items-center space-x-2.5">
+            <div className="p-2 rounded-xl bg-[#EFF2FE] text-[#3045F5]">
+              <Code2 className="w-5 h-5" />
+            </div>
+            <h1 className="text-xl font-extrabold text-[#171B3A]">
               Google Apps Script Automations & Operations Logs
             </h1>
           </div>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-[#7D8499] mt-1 font-medium">
             Production Google Apps Script code for Google Calendar Sync & Automated Email Reminders ({settings.notificationEmail}), plus real-time execution logs and universal .ics calendar export.
           </p>
         </div>
@@ -133,7 +135,7 @@ export const AppsScriptAutomation: React.FC<AppsScriptAutomationProps> = ({
           {/* Quick .ics Calendar Download */}
           <button
             onClick={handleDownloadIcs}
-            className="px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs inline-flex items-center space-x-2 transition cursor-pointer shadow"
+            className="px-3.5 py-2 rounded-xl bg-[#3045F5] hover:bg-[#2537D6] text-white font-bold text-xs inline-flex items-center space-x-2 transition cursor-pointer shadow-xs"
             title="Download .ics calendar file for Outlook, Apple Calendar, Google Calendar"
           >
             {downloadSuccess ? (
@@ -152,7 +154,7 @@ export const AppsScriptAutomation: React.FC<AppsScriptAutomationProps> = ({
           <button
             onClick={handleRunCalendarSync}
             disabled={isSyncing}
-            className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs inline-flex items-center space-x-2 transition cursor-pointer shadow disabled:opacity-50"
+            className="px-3.5 py-2 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white font-bold text-xs inline-flex items-center space-x-2 transition cursor-pointer shadow-xs disabled:opacity-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
             <span>{isSyncing ? 'Syncing Calendar...' : 'Run Calendar Sync Now'}</span>
@@ -161,7 +163,7 @@ export const AppsScriptAutomation: React.FC<AppsScriptAutomationProps> = ({
           <button
             onClick={handleRunEmailAlerts}
             disabled={isEmailing}
-            className="px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs inline-flex items-center space-x-2 transition cursor-pointer shadow disabled:opacity-50"
+            className="px-3.5 py-2 rounded-xl bg-[#171B3A] hover:bg-slate-800 text-white font-bold text-xs inline-flex items-center space-x-2 transition cursor-pointer shadow-xs disabled:opacity-50"
           >
             <Mail className={`w-3.5 h-3.5 ${isEmailing ? 'animate-bounce' : ''}`} />
             <span>{isEmailing ? 'Sending Alerts...' : 'Trigger Email Alerts Now'}</span>
@@ -170,13 +172,13 @@ export const AppsScriptAutomation: React.FC<AppsScriptAutomationProps> = ({
       </div>
 
       {/* Navigation Sub-Tabs */}
-      <div className="flex border-b border-slate-200 space-x-2 bg-white px-4 pt-3 rounded-t-xl overflow-x-auto">
+      <div className="flex border-b border-[#E8EBF2] space-x-2 bg-white px-4 pt-3 rounded-2xl shadow-xs overflow-x-auto">
         <button
           onClick={() => setActiveSubTab('calendarSync')}
           className={`pb-3 text-xs font-bold transition flex items-center space-x-2 border-b-2 cursor-pointer whitespace-nowrap ${
             activeSubTab === 'calendarSync'
-              ? 'border-indigo-600 text-indigo-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'border-[#3045F5] text-[#3045F5]'
+              : 'border-transparent text-[#7D8499] hover:text-[#171B3A]'
           }`}
         >
           <Calendar className="w-4 h-4" />
@@ -187,13 +189,13 @@ export const AppsScriptAutomation: React.FC<AppsScriptAutomationProps> = ({
           onClick={() => setActiveSubTab('icsExport')}
           className={`pb-3 text-xs font-bold transition flex items-center space-x-2 border-b-2 cursor-pointer whitespace-nowrap ${
             activeSubTab === 'icsExport'
-              ? 'border-indigo-600 text-indigo-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'border-[#3045F5] text-[#3045F5]'
+              : 'border-transparent text-[#7D8499] hover:text-[#171B3A]'
           }`}
         >
-          <Download className="w-4 h-4 text-blue-600" />
+          <Download className="w-4 h-4 text-[#3045F5]" />
           <span>Download .ics Calendar</span>
-          <span className="px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[10px] font-bold">
+          <span className="px-1.5 py-0.5 rounded-full bg-[#EFF2FE] text-[#3045F5] text-[10px] font-bold">
             {totalExportCount}
           </span>
         </button>
@@ -202,8 +204,8 @@ export const AppsScriptAutomation: React.FC<AppsScriptAutomationProps> = ({
           onClick={() => setActiveSubTab('emailScript')}
           className={`pb-3 text-xs font-bold transition flex items-center space-x-2 border-b-2 cursor-pointer whitespace-nowrap ${
             activeSubTab === 'emailScript'
-              ? 'border-indigo-600 text-indigo-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'border-[#3045F5] text-[#3045F5]'
+              : 'border-transparent text-[#7D8499] hover:text-[#171B3A]'
           }`}
         >
           <Mail className="w-4 h-4" />
@@ -214,8 +216,8 @@ export const AppsScriptAutomation: React.FC<AppsScriptAutomationProps> = ({
           onClick={() => setActiveSubTab('calendarLogs')}
           className={`pb-3 text-xs font-bold transition flex items-center space-x-2 border-b-2 cursor-pointer whitespace-nowrap ${
             activeSubTab === 'calendarLogs'
-              ? 'border-indigo-600 text-indigo-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'border-[#3045F5] text-[#3045F5]'
+              : 'border-transparent text-[#7D8499] hover:text-[#171B3A]'
           }`}
         >
           <Clock className="w-4 h-4" />

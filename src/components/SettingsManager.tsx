@@ -49,21 +49,23 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Header */}
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+      <div className="bg-white p-6 rounded-2xl border border-[#E8EBF2] shadow-xs flex items-center justify-between">
         <div>
-          <div className="flex items-center space-x-2">
-            <Settings className="w-5 h-5 text-indigo-600" />
-            <h1 className="text-xl font-bold text-slate-900">
-              LLABDHI OPS NODE Operational Settings & Rules
+          <div className="flex items-center space-x-2.5">
+            <div className="p-2 rounded-xl bg-[#EFF2FE] text-[#3045F5]">
+              <Settings className="w-5 h-5" />
+            </div>
+            <h1 className="text-xl font-extrabold text-[#171B3A]">
+              Operational Settings & Rules
             </h1>
           </div>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-[#7D8499] mt-1 font-medium">
             Configure credit terms, notification email schedules, and automated Google Apps Script triggers.
           </p>
         </div>
 
         {saveSuccess && (
-          <span className="px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-800 font-bold text-xs inline-flex items-center space-x-1 shadow-sm">
+          <span className="px-3.5 py-1.5 rounded-full bg-emerald-50 text-[#10B981] font-bold text-xs inline-flex items-center space-x-1.5 shadow-2xs">
             <CheckCircle2 className="w-4 h-4" />
             <span>Settings Saved!</span>
           </span>
@@ -71,12 +73,12 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
       </div>
 
       {/* Settings Form */}
-      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-6 text-xs">
+      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-2xl border border-[#E8EBF2] shadow-xs space-y-6 text-xs">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Notification Email */}
           <div>
-            <label className="block font-bold text-slate-800 mb-1 flex items-center space-x-1.5">
-              <Mail className="w-4 h-4 text-indigo-600" />
+            <label className="block font-bold text-[#171B3A] mb-1.5 flex items-center space-x-1.5">
+              <Mail className="w-4 h-4 text-[#3045F5]" />
               <span>Notification Alert Email Address *</span>
             </label>
             <input
@@ -84,17 +86,17 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
               required
               value={formData.notificationEmail}
               onChange={(e) => setFormData({ ...formData, notificationEmail: e.target.value })}
-              className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-xs font-mono focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3.5 py-2.5 bg-[#F7F9FC] border border-[#E8EBF2] rounded-xl text-xs font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3045F5]/20 focus:border-[#3045F5] transition"
             />
-            <p className="text-[11px] text-slate-400 mt-1">
+            <p className="text-[11px] text-[#7D8499] mt-1">
               Automated Apps Script email alerts will be sent to this recipient.
             </p>
           </div>
 
           {/* Credit Terms */}
           <div>
-            <label className="block font-bold text-slate-800 mb-1 flex items-center space-x-1.5">
-              <CreditCard className="w-4 h-4 text-indigo-600" />
+            <label className="block font-bold text-[#171B3A] mb-1.5 flex items-center space-x-1.5">
+              <CreditCard className="w-4 h-4 text-[#3045F5]" />
               <span>Default Credit Terms (Days) *</span>
             </label>
             <input
@@ -102,9 +104,9 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
               required
               value={formData.creditTermsDays}
               onChange={(e) => setFormData({ ...formData, creditTermsDays: parseInt(e.target.value) || 30 })}
-              className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-xs font-mono focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3.5 py-2.5 bg-[#F7F9FC] border border-[#E8EBF2] rounded-xl text-xs font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3045F5]/20 focus:border-[#3045F5] transition"
             />
-            <p className="text-[11px] text-slate-400 mt-1">
+            <p className="text-[11px] text-[#7D8499] mt-1">
               Standard credit terms (Default: Net 30 days for new debtor invoices).
             </p>
           </div>
@@ -112,8 +114,8 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
 
         {/* Reminder Interval Schedule */}
         <div>
-          <label className="block font-bold text-slate-800 mb-1 flex items-center space-x-1.5">
-            <Calendar className="w-4 h-4 text-indigo-600" />
+          <label className="block font-bold text-[#171B3A] mb-1.5 flex items-center space-x-1.5">
+            <Calendar className="w-4 h-4 text-[#3045F5]" />
             <span>Automated Reminder Interval Schedule (Days relative to Due Date) *</span>
           </label>
           <input
@@ -121,52 +123,52 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
             required
             value={intervalsText}
             onChange={(e) => setIntervalsText(e.target.value)}
-            className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-xs font-mono focus:ring-2 focus:ring-indigo-500"
+            className="w-full px-3.5 py-2.5 bg-[#F7F9FC] border border-[#E8EBF2] rounded-xl text-xs font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3045F5]/20 focus:border-[#3045F5] transition"
           />
-          <p className="text-[11px] text-slate-400 mt-1">
-            Comma-separated relative days. Negative numbers indicate days before due date; 0 indicates due date; positive numbers indicate overdue days. Configured rule: <code className="bg-slate-100 px-1 py-0.5 rounded font-mono text-slate-800">[-7, -5, -3, -2, -1, 0, 1, 2, 3, 7]</code>
+          <p className="text-[11px] text-[#7D8499] mt-1">
+            Comma-separated relative days. Negative numbers indicate days before due date; 0 indicates due date; positive numbers indicate overdue days. Configured rule: <code className="bg-[#EFF2FE] text-[#3045F5] px-1.5 py-0.5 rounded font-mono font-bold">[-7, -5, -3, -2, -1, 0, 1, 2, 3, 7]</code>
           </p>
         </div>
 
         {/* Company Title */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-slate-100">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-3 border-t border-[#E8EBF2]">
           <div>
-            <label className="block font-bold text-slate-800 mb-1">Company Entity Name</label>
+            <label className="block font-bold text-[#171B3A] mb-1.5">Company Entity Name</label>
             <input
               type="text"
               value={formData.companyName}
               onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-              className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3.5 py-2.5 bg-[#F7F9FC] border border-[#E8EBF2] rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3045F5]/20 focus:border-[#3045F5] transition"
             />
           </div>
 
           <div>
-            <label className="block font-bold text-slate-800 mb-1">Currency Symbol</label>
+            <label className="block font-bold text-[#171B3A] mb-1.5">Currency Symbol</label>
             <input
               type="text"
               value={formData.currencySymbol}
               onChange={(e) => setFormData({ ...formData, currencySymbol: e.target.value })}
-              className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-xs font-mono focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3.5 py-2.5 bg-[#F7F9FC] border border-[#E8EBF2] rounded-xl text-xs font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3045F5]/20 focus:border-[#3045F5] transition"
             />
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-between pt-4 border-t border-slate-200">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-4 border-t border-[#E8EBF2]">
           <div className="flex items-center space-x-2">
             <button
               type="button"
               onClick={onExportData}
-              className="px-3.5 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium text-xs inline-flex items-center space-x-1.5 cursor-pointer"
+              className="px-3.5 py-2 rounded-xl border border-[#E8EBF2] bg-[#F7F9FC] hover:bg-white text-[#171B3A] font-semibold text-xs inline-flex items-center space-x-1.5 cursor-pointer shadow-2xs transition"
             >
-              <Download className="w-4 h-4" />
-              <span>Export LLABDHI OPS NODE JSON</span>
+              <Download className="w-4 h-4 text-[#7D8499]" />
+              <span>Export JSON Backup</span>
             </button>
 
             <button
               type="button"
               onClick={onResetData}
-              className="px-3.5 py-2 rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50 font-medium text-xs inline-flex items-center space-x-1.5 cursor-pointer"
+              className="px-3.5 py-2 rounded-xl border border-rose-200 bg-rose-50/50 text-rose-700 hover:bg-rose-50 font-semibold text-xs inline-flex items-center space-x-1.5 cursor-pointer shadow-2xs transition"
             >
               <RotateCcw className="w-4 h-4" />
               <span>Reset Seed Data</span>
@@ -175,7 +177,7 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
 
           <button
             type="submit"
-            className="px-5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs inline-flex items-center space-x-2 cursor-pointer shadow"
+            className="px-5 py-2.5 rounded-xl bg-[#3045F5] hover:bg-[#2537D6] text-white font-bold text-xs inline-flex items-center justify-center space-x-2 cursor-pointer shadow-xs transition"
           >
             <Save className="w-4 h-4" />
             <span>Save Operational Rules</span>

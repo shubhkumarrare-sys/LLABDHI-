@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Navbar } from './components/Navbar';
+import { Sidebar } from './components/Sidebar';
+import { Header } from './components/Header';
 import { CashFlowCommandCenter } from './components/CashFlowCommandCenter';
 import { DebtorsManager } from './components/DebtorsManager';
 import { CreditorsManager } from './components/CreditorsManager';
@@ -559,31 +560,73 @@ export default function App() {
   };
 
   const overdueCount = debtors.filter((d) => d.status === 'Overdue').length;
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [globalSearchQuery, setGlobalSearchQuery] = useState('');
 
   if (!isAuthenticated) {
     return <LoginPage onLoginSuccess={() => setIsAuthenticated(true)} />;
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 font-sans text-slate-900 flex flex-col">
-      {/* Top Navbar */}
-      <Navbar
+    <div className="min-h-screen bg-[#F7F9FC] font-sans text-[#171B3A] flex">
+      {/* Modern Left Sidebar Navigation */}
+      <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        openAiChat={() => {
-          setAiDrawerPrompt(undefined);
-          setIsAiDrawerOpen(true);
-        }}
+        overdueCount={overdueCount}
+        isOpenMobile={isMobileSidebarOpen}
+        onCloseMobile={() => setIsMobileSidebarOpen(false)}
         onRefreshSheet={handleRefreshSheet}
         isRefreshingSheet={isRefreshingSheet}
         refreshStatusMessage={refreshStatusMessage}
         openGoogleSheetSync={() => setIsSheetSyncOpen(true)}
-        overdueCount={overdueCount}
         onLogout={handleLogout}
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="flex-1 flex flex-col min-w-0">
+        <Header
+          activeTab={activeTab}
+          onOpenMobileMenu={() => setIsMobileSidebarOpen(true)}
+          openAiChat={() => {
+            setAiDrawerPrompt(undefined);
+            setIsAiDrawerOpen(true);
+          }}
+          onRefreshSheet={handleRefreshSheet}
+          isRefreshingSheet={isRefreshingSheet}
+          refreshStatusMessage={refreshStatusMessage}
+          overdueCount={overdueCount}
+          debtors={debtors}
+          onNavigateTab={(tab) => setActiveTab(tab)}
+          onOpenEmailDraftForGroup={(clientEntity) => {
+            const grp = {
+              clientEntity,
+              totalOutstanding: 0,
+              invoicesCount: 0,
+              maxDaysOverdue: 0,
+              invoices: debtors.filter((d) => d.clientEntity === clientEntity),
+            };
+            handleGenerateEmailDraftForGroup(grp);
+          }}
+          searchQuery={globalSearchQuery}
+          onSearchChange={(q) => setGlobalSearchQuery(q)}
+        />
+
+        {/* Refresh Status Toast */}
+        {refreshStatusMessage && (
+          <div className="mx-4 sm:mx-8 mt-4 bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-2.5 rounded-xl text-xs flex items-center justify-between shadow-2xs">
+            <span className="font-semibold">{refreshStatusMessage}</span>
+            <button
+              onClick={() => setRefreshStatusMessage(null)}
+              className="text-emerald-700 hover:text-emerald-900 font-bold ml-4 cursor-pointer"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {/* Page Canvas */}
+        <main className="flex-1 px-4 sm:px-8 py-6 w-full max-w-[1600px]">
         {activeTab === 'dashboard' && (
           <CashFlowCommandCenter
             debtors={debtors}
@@ -669,7 +712,8 @@ export default function App() {
             onResetData={handleResetData}
           />
         )}
-      </main>
+        </main>
+      </div>
 
       {/* AI CFO Chat Drawer */}
       <AiCfoDrawer
@@ -687,32 +731,37 @@ export default function App() {
 
       {/* EMAIL DRAFT GENERATION MODAL */}
       {emailDraftModal.isOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-2xl max-w-2xl w-full p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center space-x-2">
-                <Sparkles className="w-5 h-5 text-indigo-600" />
-                <h3 className="text-base font-bold text-slate-900">
-                  AI Payment Reminder Email: {emailDraftModal.clientEntity}
-                </h3>
+        <div className="fixed inset-0 bg-[#171B3A]/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-[#E8EBF2] shadow-2xl max-w-2xl w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-[#E8EBF2] pb-3">
+              <div className="flex items-center space-x-2.5">
+                <div className="p-2 rounded-xl bg-[#EFF2FE] text-[#3045F5]">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-[#171B3A]">
+                    AI Payment Reminder Email
+                  </h3>
+                  <p className="text-xs text-[#7D8499]">{emailDraftModal.clientEntity}</p>
+                </div>
               </div>
               <button
                 onClick={() => setEmailDraftModal({ ...emailDraftModal, isOpen: false })}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="text-[#7D8499] hover:text-[#171B3A] p-1 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {emailDraftModal.isLoading ? (
-              <div className="py-12 text-center text-slate-500 text-xs space-y-2">
-                <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
+              <div className="py-12 text-center text-[#7D8499] text-xs space-y-2">
+                <div className="w-6 h-6 border-2 border-[#3045F5] border-t-transparent rounded-full animate-spin mx-auto" />
                 <p>Generating polite payment reminder template for {emailDraftModal.clientEntity} via Gemini 3.6 Flash...</p>
               </div>
             ) : (
               <div className="space-y-4 text-xs">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">
+                  <label className="block text-[11px] font-bold text-[#7D8499] uppercase tracking-wider mb-1">
                     Generated Email Body (Editable)
                   </label>
                   <textarea
@@ -721,12 +770,12 @@ export default function App() {
                     onChange={(e) =>
                       setEmailDraftModal({ ...emailDraftModal, draft: e.target.value })
                     }
-                    className="w-full p-3 font-mono text-xs bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-slate-800 leading-relaxed"
+                    className="w-full p-3 font-mono text-xs bg-[#F7F9FC] border border-[#E8EBF2] rounded-xl focus:ring-2 focus:ring-[#3045F5]/20 focus:border-[#3045F5] text-[#171B3A] leading-relaxed"
                   />
                 </div>
 
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                  <div className="text-[11px] text-slate-400">
+                <div className="flex items-center justify-between pt-2 border-t border-[#E8EBF2]">
+                  <div className="text-[11px] text-[#7D8499]">
                     Recipient: AP Contact ({emailDraftModal.clientEntity})
                   </div>
 
@@ -737,9 +786,9 @@ export default function App() {
                         setCopiedDraft(true);
                         setTimeout(() => setCopiedDraft(false), 2000);
                       }}
-                      className="px-3.5 py-2 rounded-lg border border-slate-300 hover:bg-slate-50 font-medium text-xs inline-flex items-center space-x-1.5 cursor-pointer text-slate-700"
+                      className="px-3.5 py-2 rounded-xl border border-[#E8EBF2] hover:bg-slate-50 font-semibold text-xs inline-flex items-center space-x-1.5 cursor-pointer text-[#171B3A]"
                     >
-                      {copiedDraft ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-slate-500" />}
+                      {copiedDraft ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-[#7D8499]" />}
                       <span>{copiedDraft ? 'Copied!' : 'Copy Text'}</span>
                     </button>
 
@@ -751,7 +800,7 @@ export default function App() {
                           setEmailDraftModal({ ...emailDraftModal, isOpen: false });
                         }, 1800);
                       }}
-                      className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs inline-flex items-center space-x-1.5 cursor-pointer shadow"
+                      className="px-4 py-2 rounded-xl bg-[#3045F5] hover:bg-[#2537D6] text-white font-bold text-xs inline-flex items-center space-x-1.5 cursor-pointer shadow-xs"
                     >
                       {sendDraftSuccess ? <Check className="w-4 h-4" /> : <Send className="w-4 h-4" />}
                       <span>{sendDraftSuccess ? 'Reminder Dispatched!' : 'Simulate Send Email'}</span>

@@ -11,8 +11,10 @@ import {
   Plus,
   Trash2,
   ChevronRight,
-  FileText,
   Building,
+  ShieldCheck,
+  TrendingDown,
+  Layers,
 } from 'lucide-react';
 
 interface EmiManagerProps {
@@ -58,6 +60,9 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
   const [newDueDay, setNewDueDay] = useState(5);
   const [newNextDueDate, setNewNextDueDate] = useState('2026-04-01');
 
+  // Filter within the schedule modal: 'all' | 'next12' | 'upcoming' | 'paid'
+  const [scheduleFilter, setScheduleFilter] = useState<'all' | 'next12' | 'upcoming' | 'paid'>('all');
+
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newLoanName.trim()) return;
@@ -91,20 +96,21 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
     e.preventDefault();
     if (!activeScheduleEmi || !recordingMonth) return;
 
-    // Calculate updated due date (advance by 1 month)
-    const currentDate = new Date(recordingMonth.dueDate);
-    currentDate.setMonth(currentDate.getMonth() + 1);
-    const newDueDateStr = currentDate.toISOString().substring(0, 10);
+    // Deduct one installment from remainingBalance
+    const updatedBalance = Math.max(0, activeScheduleEmi.remainingBalance - recordingMonth.amount);
 
-    const updatedBalance = Math.max(0, activeScheduleEmi.remainingBalance - activeScheduleEmi.monthlyEmi);
+    // Advance nextDueDate by 1 month
+    const nextDate = new Date(activeScheduleEmi.nextDueDate);
+    nextDate.setMonth(nextDate.getMonth() + 1);
+    const updatedDueDateStr = nextDate.toISOString().substring(0, 10);
 
     const updatedItem: EmiItem = {
       ...activeScheduleEmi,
       remainingBalance: updatedBalance,
-      nextDueDate: newDueDateStr,
-      status: 'Paid',
-      lastPaymentDate: lastPaymentDate || recordingMonth.dueDate,
-      lastPaymentRef: lastPaymentRef || `ACH/ICICI/INP-${Math.floor(1000 + Math.random() * 9000)}`,
+      nextDueDate: updatedDueDateStr,
+      status: updatedBalance === 0 ? 'Paid' : 'Upcoming',
+      lastPaymentRef: lastPaymentRef || `ACH/INP-${Math.floor(100000 + Math.random() * 900000)}`,
+      lastPaymentDate: lastPaymentDate || new Date().toISOString().substring(0, 10),
     };
 
     onUpdateEmi(updatedItem);
@@ -113,39 +119,37 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
     setLastPaymentRef('');
   };
 
-  // Deduplicate EMIs so each loan facility appears exactly ONCE
+  // Deduplicate EMIs for unique vehicle loan facilities
   const cleanEmis = deduplicateEmis(emis);
 
-  // Schedule Filter State inside Modal
-  const [scheduleFilter, setScheduleFilter] = useState<'all' | 'next12' | 'upcoming' | 'paid'>('all');
-
-  // Helper function to generate full repayment schedule for a loan facility
+  // Helper to generate full loan schedule
   const generateFullLoanSchedule = (item: EmiItem): MonthlyScheduleRow[] => {
+    const totalLoan = item.totalLoanValue;
+    const remaining = item.remainingBalance;
+    const monthlyEmi = item.monthlyEmi;
+
+    const totalTenureMonths = Math.max(1, Math.round(totalLoan / monthlyEmi));
+    const remainingMonths = Math.max(1, Math.round(remaining / monthlyEmi));
+    const paidMonthsCount = Math.max(0, totalTenureMonths - remainingMonths);
+
     const rows: MonthlyScheduleRow[] = [];
-    const baseDueDate = new Date(item.nextDueDate || '2026-08-01');
-    const day = item.dueDayOfMonth || baseDueDate.getDate() || 1;
+    const baseDueDate = new Date(item.nextDueDate);
+    const day = item.dueDayOfMonth || baseDueDate.getDate() || 5;
 
-    const monthlyEmi = item.monthlyEmi || 100000;
-    const totalValue = item.totalLoanValue || 5000000;
-    const remainingVal = item.remainingBalance || 2500000;
-
-    // Calculate tenure in months
-    const totalMonths = Math.max(12, Math.min(120, Math.ceil(totalValue / monthlyEmi)));
-    const remainingMonths = Math.max(1, Math.min(totalMonths, Math.ceil(remainingVal / monthlyEmi)));
-    const paidMonthsCount = Math.max(0, totalMonths - remainingMonths);
-
-    // 1. Paid installments in past history
-    for (let p = paidMonthsCount; p >= 1; p--) {
+    // 1. Paid installments in past
+    for (let p = paidMonthsCount; p > 0; p--) {
       const pastDate = new Date(baseDueDate);
       pastDate.setMonth(pastDate.getMonth() - p);
       pastDate.setDate(day);
+
       const mName = pastDate.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+      const dateStr = pastDate.toISOString().substring(0, 10);
       const instNo = paidMonthsCount - p + 1;
 
       rows.push({
         monthIndex: instNo,
         monthName: mName,
-        dueDate: pastDate.toISOString().substring(0, 10),
+        dueDate: dateStr,
         amount: monthlyEmi,
         status: 'Paid',
         paymentRef: item.lastPaymentRef || `ACH/${(item.lenderBank || 'BANK').split(' ')[0].toUpperCase()}/PAID-${1000 + instNo}`,
@@ -186,51 +190,116 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Header Title */}
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center space-x-2">
-            <Car className="w-5 h-5 text-indigo-600" />
-            <h1 className="text-xl font-bold text-slate-900">
-              Vehicle & Loan Repayment Facilities (EMIs)
-            </h1>
+      {/* 1. TOP 4 MASTER METRIC CARDS */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+        {/* Total Monthly EMI Outflow */}
+        <div className="bg-white rounded-2xl p-5 border border-[#E8EBF2] shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-[#7D8499]">
+              Monthly EMI Outflow
+            </span>
+            <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+              <Calendar className="w-5 h-5" />
+            </div>
           </div>
-          <p className="text-xs text-slate-500 mt-1">
-            Main EMI loan list. Click on any loan to view its month-wise repayment schedule and payment records.
-          </p>
+          <div className="mt-4">
+            <h3 className="text-2xl lg:text-3xl font-extrabold text-rose-600 tracking-tight tabular-nums">
+              {formatINR(totalMonthlyEmi)}
+            </h3>
+            <p className="text-xs text-rose-600 mt-1 font-semibold">
+              Monthly ACH / ECS recurring debit
+            </p>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center space-x-1.5 transition cursor-pointer shadow"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Loan / Party</span>
-          </button>
+        {/* Total Remaining Principal */}
+        <div className="bg-white rounded-2xl p-5 border border-[#E8EBF2] shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-[#7D8499]">
+              Remaining Debt Balance
+            </span>
+            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+              <Clock className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="mt-4">
+            <h3 className="text-2xl lg:text-3xl font-extrabold text-[#171B3A] tracking-tight tabular-nums">
+              {formatINR(totalRemaining)}
+            </h3>
+            <p className="text-xs text-amber-700 mt-1 font-semibold">
+              Outstanding liability across banks
+            </p>
+          </div>
+        </div>
 
-          <div className="grid grid-cols-3 gap-3 text-right bg-slate-50 p-3 rounded-lg border border-slate-200">
-            <div>
-              <span className="text-[10px] text-slate-400 block font-semibold uppercase">Total Sanctioned</span>
-              <span className="text-xs font-bold text-slate-800">{formatINR(totalLoanValue)}</span>
+        {/* Total Sanctioned Capital */}
+        <div className="bg-white rounded-2xl p-5 border border-[#E8EBF2] shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-[#7D8499]">
+              Sanctioned Loan Facility
+            </span>
+            <div className="w-10 h-10 rounded-xl bg-[#EFF2FE] text-[#3045F5] flex items-center justify-center">
+              <Building className="w-5 h-5" />
             </div>
-            <div>
-              <span className="text-[10px] text-slate-400 block font-semibold uppercase">Total Remaining</span>
-              <span className="text-xs font-bold text-amber-700">{formatINR(totalRemaining)}</span>
+          </div>
+          <div className="mt-4">
+            <h3 className="text-2xl lg:text-3xl font-extrabold text-[#171B3A] tracking-tight tabular-nums">
+              {formatINR(totalLoanValue)}
+            </h3>
+            <p className="text-xs text-[#7D8499] mt-1 font-medium">
+              Total borrowed credit envelope
+            </p>
+          </div>
+        </div>
+
+        {/* Active Loan Count */}
+        <div className="bg-white rounded-2xl p-5 border border-[#E8EBF2] shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-[#7D8499]">
+              Active Facilities
+            </span>
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#10B981] flex items-center justify-center">
+              <Car className="w-5 h-5" />
             </div>
-            <div>
-              <span className="text-[10px] text-slate-400 block font-semibold uppercase">Monthly EMI Outflow</span>
-              <span className="text-xs font-bold text-rose-600">{formatINR(totalMonthlyEmi)}</span>
-            </div>
+          </div>
+          <div className="mt-4">
+            <h3 className="text-2xl lg:text-3xl font-extrabold text-[#171B3A] tracking-tight tabular-nums">
+              {cleanEmis.length} Active Loans
+            </h3>
+            <p className="text-xs text-[#10B981] mt-1 font-semibold">
+              {Math.round(((totalLoanValue - totalRemaining) / (totalLoanValue || 1)) * 100)}% paid to date
+            </p>
           </div>
         </div>
       </div>
 
-      {/* MAIN EMI LOANS LIST - CLEAN & CONCISE */}
+      {/* 2. SECTION TOOLBAR & ADD LOAN */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-extrabold text-[#171B3A]">
+            Vehicle & Equipment Loan Facilities
+          </h2>
+          <p className="text-xs text-[#7D8499] mt-0.5">
+            Click on any loan facility card to view its complete 12-month amortization schedule and record payments.
+          </p>
+        </div>
+
+        <button
+          onClick={() => setIsAddModalOpen(true)}
+          className="px-4 py-2 rounded-xl bg-[#3045F5] hover:bg-[#2537D6] text-white font-bold text-xs flex items-center space-x-1.5 transition cursor-pointer shadow-xs shrink-0"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Add Loan Facility</span>
+        </button>
+      </div>
+
+      {/* 3. MAIN EMI LOANS CARDS GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {cleanEmis.map((item) => {
           const daysToDue = calculateDaysDiff(item.nextDueDate);
-          const isPaid = item.status === 'Paid';
+          const percentPaid = Math.round(
+            ((item.totalLoanValue - item.remainingBalance) / (item.totalLoanValue || 1)) * 100
+          );
 
           return (
             <div
@@ -239,19 +308,19 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
                 setActiveScheduleEmi(item);
                 setScheduleFilter('all');
               }}
-              className="bg-white rounded-2xl border border-slate-200 hover:border-indigo-400 hover:shadow-md transition cursor-pointer flex flex-col justify-between overflow-hidden group"
+              className="bg-white rounded-2xl border border-[#E8EBF2] hover:border-[#3045F5]/40 hover:shadow-md transition cursor-pointer flex flex-col justify-between overflow-hidden group"
             >
               <div className="p-5 space-y-4">
                 {/* Header Name & Lender */}
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-[10px] font-bold text-slate-600 border border-slate-200">
+                    <span className="px-2.5 py-0.5 rounded-full bg-[#F7F9FC] text-[10px] font-bold text-[#171B3A] border border-[#E8EBF2]">
                       {item.lenderBank}
                     </span>
-                    <h2 className="text-base font-extrabold text-slate-900 mt-2 group-hover:text-indigo-600 transition">
+                    <h3 className="text-base font-extrabold text-[#171B3A] mt-2 group-hover:text-[#3045F5] transition">
                       {item.loanName}
-                    </h2>
-                    <p className="text-xs text-slate-500 font-medium">{item.vehicleModel}</p>
+                    </h3>
+                    <p className="text-xs text-[#7D8499] font-medium">{item.vehicleModel}</p>
                   </div>
                   {onDeleteEmi && (
                     <button
@@ -260,49 +329,57 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
                         onDeleteEmi(item.id);
                       }}
                       title="Delete Loan Facility"
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                      className="p-1.5 rounded-lg text-[#7D8499] hover:text-rose-600 hover:bg-rose-50 transition"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   )}
                 </div>
 
-                {/* Main Monthly EMI Amount */}
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+                {/* Main Monthly EMI Amount Box */}
+                <div className="p-3.5 rounded-xl bg-[#F7F9FC] border border-[#E8EBF2] flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Monthly EMI</span>
-                    <span className="text-lg font-black text-rose-600">{formatINR(item.monthlyEmi)}</span>
+                    <span className="text-[10px] font-bold text-[#7D8499] uppercase block tracking-wider">
+                      Monthly EMI
+                    </span>
+                    <span className="text-lg font-extrabold text-rose-600 tabular-nums">
+                      {formatINR(item.monthlyEmi)}
+                    </span>
                   </div>
                   <div className="text-right">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Next Due Date</span>
-                    <span className="text-xs font-extrabold text-slate-800">{item.nextDueDate}</span>
+                    <span className="text-[10px] font-bold text-[#7D8499] uppercase block tracking-wider">
+                      Next Due Date
+                    </span>
+                    <span className="text-xs font-extrabold text-[#171B3A]">{item.nextDueDate}</span>
                   </div>
                 </div>
 
                 {/* Progress bar summary */}
                 <div>
-                  <div className="flex justify-between text-[10px] text-slate-500 font-semibold mb-1">
+                  <div className="flex justify-between text-[11px] text-[#7D8499] font-semibold mb-1.5">
                     <span>Remaining Principal</span>
-                    <span className="text-amber-700 font-bold">{formatINR(item.remainingBalance)}</span>
+                    <span className="text-amber-700 font-extrabold tabular-nums">
+                      {formatINR(item.remainingBalance)}
+                    </span>
                   </div>
-                  <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                  <div className="w-full h-2 rounded-full bg-[#F7F9FC] border border-[#E8EBF2] overflow-hidden">
                     <div
-                      className="h-full bg-emerald-500 rounded-full"
-                      style={{
-                        width: `${Math.round(
-                          ((item.totalLoanValue - item.remainingBalance) / item.totalLoanValue) * 100
-                        )}%`,
-                      }}
+                      className="h-full bg-[#10B981] rounded-full transition-all"
+                      style={{ width: `${percentPaid}%` }}
                     />
+                  </div>
+                  <div className="flex justify-between text-[10px] text-[#7D8499] mt-1 font-medium">
+                    <span>{percentPaid}% Repaid</span>
+                    <span>Sanction: {formatINR(item.totalLoanValue)}</span>
                   </div>
                 </div>
               </div>
 
               {/* Click action footer */}
-              <div className="px-5 py-3 bg-gradient-to-r from-slate-50 to-indigo-50/50 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-indigo-700 group-hover:bg-indigo-600 group-hover:text-white transition">
+              <div className="px-5 py-3 bg-[#F7F9FC] border-t border-[#E8EBF2] flex items-center justify-between text-xs font-bold text-[#3045F5] group-hover:bg-[#3045F5] group-hover:text-white transition">
                 <span className="flex items-center space-x-1.5">
                   <Calendar className="w-3.5 h-3.5" />
-                  <span>Click to view Entire Repayment Schedule</span>
+                  <span>View Month-Wise Repayment Schedule</span>
                 </span>
                 <ChevronRight className="w-4 h-4 transform group-hover:translate-x-1 transition" />
               </div>
@@ -311,7 +388,7 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
         })}
       </div>
 
-      {/* MONTH-WISE SCHEDULE MODAL */}
+      {/* 4. MONTH-WISE SCHEDULE MODAL */}
       {activeScheduleEmi && (() => {
         const fullSchedule = generateFullLoanSchedule(activeScheduleEmi);
         const paidCount = fullSchedule.filter((r) => r.status === 'Paid').length;
@@ -330,23 +407,23 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
         });
 
         return (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-4xl w-full p-6 space-y-5 my-8 max-h-[90vh] flex flex-col">
+          <div className="fixed inset-0 bg-[#171B3A]/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white rounded-2xl border border-[#E8EBF2] shadow-2xl max-w-4xl w-full p-6 space-y-5 my-8 max-h-[90vh] flex flex-col">
               {/* Modal Header */}
-              <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-start justify-between border-b border-[#E8EBF2] pb-4">
                 <div className="flex items-center space-x-3">
-                  <div className="p-3 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100">
+                  <div className="p-3 rounded-xl bg-[#EFF2FE] text-[#3045F5]">
                     <Car className="w-6 h-6" />
                   </div>
                   <div>
-                    <span className="px-2.5 py-0.5 rounded-md bg-indigo-100 text-indigo-800 text-[10px] font-extrabold uppercase">
+                    <span className="px-2.5 py-0.5 rounded-full bg-[#EFF2FE] text-[#3045F5] text-[10px] font-extrabold uppercase">
                       {activeScheduleEmi.lenderBank}
                     </span>
-                    <h2 className="text-lg font-extrabold text-slate-900 mt-1">
+                    <h3 className="text-lg font-extrabold text-[#171B3A] mt-1">
                       {activeScheduleEmi.loanName}
-                    </h2>
-                    <p className="text-xs text-slate-500">
-                      {activeScheduleEmi.vehicleModel} • Account: <span className="font-mono text-slate-700 font-bold">{activeScheduleEmi.accountNo}</span>
+                    </h3>
+                    <p className="text-xs text-[#7D8499]">
+                      {activeScheduleEmi.vehicleModel} • Account: <span className="font-mono text-[#171B3A] font-bold">{activeScheduleEmi.accountNo}</span>
                     </p>
                   </div>
                 </div>
@@ -356,99 +433,79 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
                     setActiveScheduleEmi(null);
                     setRecordingMonth(null);
                   }}
-                  className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                  className="text-[#7D8499] hover:text-[#171B3A] p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               {/* Quick Loan KPI Bar */}
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 bg-[#F7F9FC] p-3.5 rounded-xl border border-[#E8EBF2] text-xs">
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Sanctioned Loan</span>
-                  <span className="text-sm font-extrabold text-slate-800">{formatINR(activeScheduleEmi.totalLoanValue)}</span>
+                  <span className="text-[10px] font-bold text-[#7D8499] uppercase block tracking-wider">Sanctioned</span>
+                  <span className="text-sm font-extrabold text-[#171B3A] tabular-nums">{formatINR(activeScheduleEmi.totalLoanValue)}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Remaining Principal</span>
-                  <span className="text-sm font-extrabold text-amber-700">{formatINR(activeScheduleEmi.remainingBalance)}</span>
+                  <span className="text-[10px] font-bold text-[#7D8499] uppercase block tracking-wider">Remaining</span>
+                  <span className="text-sm font-extrabold text-amber-700 tabular-nums">{formatINR(activeScheduleEmi.remainingBalance)}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Monthly EMI</span>
-                  <span className="text-sm font-extrabold text-rose-600">{formatINR(activeScheduleEmi.monthlyEmi)}</span>
+                  <span className="text-[10px] font-bold text-[#7D8499] uppercase block tracking-wider">Monthly EMI</span>
+                  <span className="text-sm font-extrabold text-rose-600 tabular-nums">{formatINR(activeScheduleEmi.monthlyEmi)}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Total Tenure</span>
-                  <span className="text-sm font-extrabold text-indigo-700">{fullSchedule.length} Months</span>
+                  <span className="text-[10px] font-bold text-[#7D8499] uppercase block tracking-wider">Total Tenure</span>
+                  <span className="text-sm font-extrabold text-[#3045F5]">{fullSchedule.length} Months</span>
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Tenure Progress</span>
-                  <span className="text-xs font-bold text-emerald-700">{paidCount} Paid • {upcomingCount} Left</span>
+                  <span className="text-[10px] font-bold text-[#7D8499] uppercase block tracking-wider">Progress</span>
+                  <span className="text-xs font-bold text-[#10B981]">{paidCount} Paid • {upcomingCount} Left</span>
                 </div>
               </div>
 
               {/* SCHEDULE FILTER TABS */}
-              <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-2">
+              <div className="flex items-center justify-between gap-2 border-b border-[#E8EBF2] pb-2">
                 <div className="flex items-center space-x-1.5 text-xs font-bold">
-                  <button
-                    onClick={() => setScheduleFilter('all')}
-                    className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
-                      scheduleFilter === 'all'
-                        ? 'bg-indigo-600 text-white shadow'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    Full Schedule ({fullSchedule.length})
-                  </button>
-                  <button
-                    onClick={() => setScheduleFilter('next12')}
-                    className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
-                      scheduleFilter === 'next12'
-                        ? 'bg-indigo-600 text-white shadow'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    Next 12 Months
-                  </button>
-                  <button
-                    onClick={() => setScheduleFilter('upcoming')}
-                    className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
-                      scheduleFilter === 'upcoming'
-                        ? 'bg-amber-600 text-white shadow'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    Upcoming ({upcomingCount})
-                  </button>
-                  <button
-                    onClick={() => setScheduleFilter('paid')}
-                    className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
-                      scheduleFilter === 'paid'
-                        ? 'bg-emerald-600 text-white shadow'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    Paid History ({paidCount})
-                  </button>
+                  {(
+                    [
+                      { key: 'all', label: `Full Schedule (${fullSchedule.length})` },
+                      { key: 'next12', label: 'Next 12 Months' },
+                      { key: 'upcoming', label: `Upcoming (${upcomingCount})` },
+                      { key: 'paid', label: `Paid (${paidCount})` },
+                    ] as const
+                  ).map((tab) => (
+                    <button
+                      key={tab.key}
+                      onClick={() => setScheduleFilter(tab.key)}
+                      className={`px-3 py-1.5 rounded-lg transition cursor-pointer font-bold ${
+                        scheduleFilter === tab.key
+                          ? 'bg-[#3045F5] text-white shadow-xs'
+                          : 'bg-[#F7F9FC] text-[#7D8499] hover:text-[#171B3A]'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
                 </div>
 
-                <div className="text-[11px] text-slate-500 font-medium">
-                  Showing <span className="font-bold text-slate-900">{filteredSchedule.length}</span> installments
+                <div className="text-[11px] text-[#7D8499] font-medium">
+                  Showing <span className="font-bold text-[#171B3A]">{filteredSchedule.length}</span> installments
                 </div>
               </div>
 
               {/* RECORD PAYMENT SUB-FORM IF CLICKED ON A MONTH */}
               {recordingMonth && (
-                <div className="p-4 rounded-xl bg-amber-50/80 border border-amber-200 space-y-3">
+                <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-200 space-y-3">
                   <div className="flex items-center justify-between border-b border-amber-200/60 pb-2">
                     <div className="flex items-center space-x-2">
                       <CreditCard className="w-4 h-4 text-amber-700" />
-                      <span className="font-bold text-slate-900 text-xs">
+                      <span className="font-bold text-[#171B3A] text-xs">
                         Record Payment for Inst #{recordingMonth.monthIndex} ({recordingMonth.monthName} - {formatINR(recordingMonth.amount)})
                       </span>
                     </div>
                     <button
                       onClick={() => setRecordingMonth(null)}
-                      className="text-amber-800 hover:text-amber-950 text-xs font-bold"
+                      className="text-[#7D8499] hover:text-[#171B3A] text-xs font-bold"
                     >
                       Cancel
                     </button>
@@ -456,50 +513,46 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
 
                   <form onSubmit={handleRecordPaymentSubmit} className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                     <div>
-                      <label className="block font-semibold text-slate-700 mb-1">
-                        Bank Ref / UTR No. *
+                      <label className="block text-[11px] font-semibold text-[#171B3A] mb-1">
+                        Bank UTR / ACH Reference *
                       </label>
                       <input
                         type="text"
                         required
-                        placeholder="e.g. ACH/ICICI/AUG01/8832"
                         value={lastPaymentRef}
                         onChange={(e) => setLastPaymentRef(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white text-xs font-semibold"
+                        className="w-full px-3 py-1.5 border border-[#E8EBF2] bg-white rounded-lg focus:ring-2 focus:ring-[#3045F5]"
                       />
                     </div>
-
                     <div>
-                      <label className="block font-semibold text-slate-700 mb-1">
-                        Payment Date *
+                      <label className="block text-[11px] font-semibold text-[#171B3A] mb-1">
+                        Payment Debit Date *
                       </label>
                       <input
                         type="date"
                         required
                         value={lastPaymentDate}
                         onChange={(e) => setLastPaymentDate(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white text-xs font-semibold"
+                        className="w-full px-3 py-1.5 border border-[#E8EBF2] bg-white rounded-lg focus:ring-2 focus:ring-[#3045F5]"
                       />
                     </div>
-
                     <div className="flex items-end">
                       <button
                         type="submit"
-                        className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow transition cursor-pointer text-xs flex items-center justify-center space-x-1"
+                        className="w-full py-2 bg-[#10B981] hover:bg-emerald-600 text-white font-bold rounded-lg text-xs transition cursor-pointer shadow-xs"
                       >
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Confirm & Record</span>
+                        Confirm Payment Cleared
                       </button>
                     </div>
                   </form>
                 </div>
               )}
 
-              {/* MONTH-WISE REPAYMENT SCHEDULE TABLE */}
-              <div className="overflow-y-auto flex-1 rounded-xl border border-slate-200 max-h-[380px]">
+              {/* SCHEDULE TABLE */}
+              <div className="overflow-y-auto flex-1 max-h-[380px] rounded-xl border border-[#E8EBF2]">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="bg-slate-100/80 text-slate-600 font-extrabold uppercase text-[10px] tracking-wider sticky top-0 border-b border-slate-200 z-10">
+                    <tr className="bg-[#F7F9FC] text-[#7D8499] font-bold uppercase text-[10px] tracking-wider sticky top-0 border-b border-[#E8EBF2] z-10">
                       <th className="p-3">Inst #</th>
                       <th className="p-3">Month</th>
                       <th className="p-3">Due Date</th>
@@ -508,26 +561,26 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
                       <th className="p-3 text-right">Payment Ref / Action</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 font-medium">
+                  <tbody className="divide-y divide-[#E8EBF2] font-medium">
                     {filteredSchedule.map((row) => (
                       <tr
                         key={row.monthIndex + row.dueDate}
-                        className={row.status === 'Paid' ? 'bg-emerald-50/30' : 'hover:bg-slate-50'}
+                        className={row.status === 'Paid' ? 'bg-emerald-50/20' : 'hover:bg-[#F7F9FC]'}
                       >
-                        <td className="p-3 font-mono font-bold text-slate-500">#{row.monthIndex}</td>
-                        <td className="p-3 font-extrabold text-slate-800">{row.monthName}</td>
-                        <td className="p-3 text-slate-600 font-mono">{row.dueDate}</td>
-                        <td className="p-3 text-right font-extrabold text-rose-600">
+                        <td className="p-3 font-mono font-bold text-[#7D8499]">#{row.monthIndex}</td>
+                        <td className="p-3 font-extrabold text-[#171B3A]">{row.monthName}</td>
+                        <td className="p-3 text-[#7D8499] font-mono">{row.dueDate}</td>
+                        <td className="p-3 text-right font-extrabold text-rose-600 tabular-nums">
                           {formatINR(row.amount)}
                         </td>
                         <td className="p-3 text-center">
                           {row.status === 'Paid' ? (
-                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold border border-emerald-200 inline-flex items-center space-x-1">
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-[#10B981] text-[10px] font-bold inline-flex items-center space-x-1">
+                              <CheckCircle2 className="w-3 h-3 text-[#10B981]" />
                               <span>Paid</span>
                             </span>
                           ) : (
-                            <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-extrabold border border-amber-200 inline-flex items-center space-x-1">
+                            <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[10px] font-bold inline-flex items-center space-x-1">
                               <Clock className="w-3 h-3 text-amber-600" />
                               <span>Upcoming</span>
                             </span>
@@ -535,7 +588,7 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
                         </td>
                         <td className="p-3 text-right font-mono text-[11px]">
                           {row.status === 'Paid' ? (
-                            <span className="text-emerald-800 font-semibold bg-emerald-100/60 px-2 py-1 rounded">
+                            <span className="text-[#10B981] font-semibold bg-emerald-50 px-2 py-1 rounded-md">
                               {row.paymentRef || 'ACH/DIRECT-DEBIT'}
                             </span>
                           ) : (
@@ -543,9 +596,9 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
                               onClick={() => {
                                 setRecordingMonth(row);
                                 setLastPaymentDate(row.dueDate);
-                                setLastPaymentRef(`ACH/ICICI/INP-${Math.floor(1000 + Math.random() * 9000)}`);
+                                setLastPaymentRef(`ACH/INP-${Math.floor(1000 + Math.random() * 9000)}`);
                               }}
-                              className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[11px] transition cursor-pointer shadow-xs"
+                              className="px-2.5 py-1 rounded-lg bg-[#3045F5] hover:bg-[#2537D6] text-white font-bold text-[11px] transition cursor-pointer shadow-2xs"
                             >
                               Record Payment
                             </button>
@@ -558,13 +611,13 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
               </div>
 
               {/* Modal Footer */}
-              <div className="flex justify-end pt-2 border-t border-slate-100">
+              <div className="flex justify-end pt-2 border-t border-[#E8EBF2]">
                 <button
                   onClick={() => {
                     setActiveScheduleEmi(null);
                     setRecordingMonth(null);
                   }}
-                  className="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs cursor-pointer shadow"
+                  className="px-5 py-2 rounded-xl bg-[#171B3A] hover:bg-slate-800 text-white font-bold text-xs cursor-pointer shadow-xs"
                 >
                   Close Schedule
                 </button>
@@ -574,23 +627,23 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
         );
       })()}
 
-      {/* ADD NEW LOAN / PARTY MODAL */}
+      {/* 5. ADD NEW LOAN / PARTY MODAL */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center space-x-2">
-                <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600">
+        <div className="fixed inset-0 bg-[#171B3A]/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-[#E8EBF2] shadow-2xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-[#E8EBF2] pb-3">
+              <div className="flex items-center space-x-2.5">
+                <div className="p-2 rounded-xl bg-[#EFF2FE] text-[#3045F5]">
                   <Car className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900 text-base">Add New EMI Loan / Party</h3>
-                  <p className="text-xs text-slate-500">Add a new financing facility or vehicle/equipment loan</p>
+                  <h3 className="font-extrabold text-[#171B3A] text-base">Add New EMI Loan Facility</h3>
+                  <p className="text-xs text-[#7D8499]">Add financing facility or vehicle/equipment loan</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsAddModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1"
+                className="text-[#7D8499] hover:text-[#171B3A] p-1 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -598,7 +651,7 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
 
             <form onSubmit={handleAddSubmit} className="space-y-3.5 text-xs">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">
+                <label className="block font-semibold text-[#171B3A] mb-1">
                   Loan Party / Facility Name *
                 </label>
                 <input
@@ -607,13 +660,13 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
                   placeholder="e.g. HDFC Commercial Vehicle Loan / Tata Motors Finance"
                   value={newLoanName}
                   onChange={(e) => setNewLoanName(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 border border-[#E8EBF2] rounded-xl text-xs focus:ring-2 focus:ring-[#3045F5]/20 focus:border-[#3045F5]"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
+                  <label className="block font-semibold text-[#171B3A] mb-1">
                     Lender Bank / Institution *
                   </label>
                   <input
@@ -622,28 +675,28 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
                     placeholder="e.g. HDFC Bank Ltd"
                     value={newLenderBank}
                     onChange={(e) => setNewLenderBank(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-[#E8EBF2] rounded-xl text-xs focus:ring-2 focus:ring-[#3045F5]/20 focus:border-[#3045F5]"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
+                  <label className="block font-semibold text-[#171B3A] mb-1">
                     Vehicle / Asset Model *
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Volvo FH Truck (MH 12 LL 9009)"
+                    placeholder="e.g. Mercedes-Benz / MG Cyberster"
                     value={newVehicleModel}
                     onChange={(e) => setNewVehicleModel(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-[#E8EBF2] rounded-xl text-xs focus:ring-2 focus:ring-[#3045F5]/20 focus:border-[#3045F5]"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
+                  <label className="block font-semibold text-[#171B3A] mb-1">
                     Loan Account Number
                   </label>
                   <input
@@ -651,12 +704,12 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
                     placeholder="e.g. HDFC-CVL-88219"
                     value={newAccountNo}
                     onChange={(e) => setNewAccountNo(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 font-mono"
+                    className="w-full px-3 py-2 border border-[#E8EBF2] rounded-xl text-xs focus:ring-2 focus:ring-[#3045F5]/20 focus:border-[#3045F5] font-mono"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
+                  <label className="block font-semibold text-[#171B3A] mb-1">
                     Next Due Date *
                   </label>
                   <input
@@ -664,14 +717,14 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
                     required
                     value={newNextDueDate}
                     onChange={(e) => setNewNextDueDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-[#E8EBF2] rounded-xl text-xs focus:ring-2 focus:ring-[#3045F5]/20 focus:border-[#3045F5]"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
+                  <label className="block font-semibold text-[#171B3A] mb-1">
                     Sanctioned Loan (₹)
                   </label>
                   <input
@@ -679,12 +732,12 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
                     required
                     value={newTotalLoanValue}
                     onChange={(e) => setNewTotalLoanValue(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-[#E8EBF2] rounded-xl text-xs focus:ring-2 focus:ring-[#3045F5]/20 focus:border-[#3045F5]"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
+                  <label className="block font-semibold text-[#171B3A] mb-1">
                     Remaining Balance (₹)
                   </label>
                   <input
@@ -692,12 +745,12 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
                     required
                     value={newRemainingBalance}
                     onChange={(e) => setNewRemainingBalance(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-[#E8EBF2] rounded-xl text-xs focus:ring-2 focus:ring-[#3045F5]/20 focus:border-[#3045F5]"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
+                  <label className="block font-semibold text-[#171B3A] mb-1">
                     Monthly EMI (₹)
                   </label>
                   <input
@@ -705,24 +758,24 @@ export const EmiManager: React.FC<EmiManagerProps> = ({
                     required
                     value={newMonthlyEmi}
                     onChange={(e) => setNewMonthlyEmi(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 font-bold text-rose-600"
+                    className="w-full px-3 py-2 border border-[#E8EBF2] rounded-xl text-xs focus:ring-2 focus:ring-[#3045F5]/20 focus:border-[#3045F5] font-bold text-rose-600"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-[#E8EBF2]">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 font-semibold cursor-pointer hover:bg-slate-100"
+                  className="px-4 py-2 rounded-xl border border-[#E8EBF2] text-[#7D8499] font-semibold cursor-pointer hover:bg-slate-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold cursor-pointer shadow"
+                  className="px-5 py-2 rounded-xl bg-[#3045F5] hover:bg-[#2537D6] text-white font-bold cursor-pointer shadow-xs"
                 >
-                  Add EMI Loan Facility
+                  Add Facility
                 </button>
               </div>
             </form>
