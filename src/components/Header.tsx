@@ -65,8 +65,8 @@ export const Header: React.FC<HeaderProps> = ({
   // Tab Title Mapping
   const tabTitles: Record<string, { title: string; subtitle: string }> = {
     dashboard: {
-      title: 'Operational Command Center',
-      subtitle: '5, 10, 15 & 30-Day Liquidity Analysis',
+      title: 'Overview',
+      subtitle: 'Monitor your operations, financial activity and pending actions.',
     },
     debtors: {
       title: 'Debtors Management (AR)',

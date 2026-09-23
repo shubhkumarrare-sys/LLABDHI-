@@ -194,10 +194,107 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
     1000000
   );
 
+  // Real enterprise metrics for 6 dynamic KPI cards
+  const totalReceivables = debtors.reduce((sum, d) => sum + (d.status !== 'Paid' ? d.amount : 0), 0);
+  const overdueDebtorsCount = debtors.filter((d) => d.status === 'Overdue').length;
+  const totalOverdueAmount = debtors.filter((d) => d.status === 'Overdue').reduce((sum, d) => sum + d.amount, 0);
+
+  const totalCreditorsUnpaid = creditors.reduce((sum, c) => sum + (c.status !== 'Paid' ? c.amount : 0), 0);
+  const pendingCreditorsCount = creditors.filter((c) => c.status !== 'Paid').length;
+
+  const totalMonthlyEmi = emis.reduce((sum, e) => sum + (e.monthlyEmi || 0), 0);
+  const activeEmisCount = emis.filter((e) => e.status !== 'Paid').length;
+
+  const pendingComplianceCount = compliance.filter((c) => c.status === 'Pending').length;
+  const totalComplianceEstimated = compliance
+    .filter((c) => c.status === 'Pending')
+    .reduce((sum, c) => sum + (c.estimatedAmount || 0), 0);
+
+  const uniqueClientsCount = new Set(debtors.map((d) => d.clientEntity.trim())).size;
+  const uniqueVendorsCount = new Set(creditors.map((c) => c.vendorEntity.trim())).size;
+
+  // Real recent activities from all modules
+  const recentActivities = [
+    ...debtors
+      .filter((d) => d.status === 'Paid' || d.lastPaymentDate)
+      .map((d) => ({
+        id: `act-deb-${d.id}`,
+        type: 'receipt' as const,
+        title: d.clientEntity,
+        subtitle: `Invoice ${d.invoiceRef || d.id} cleared`,
+        amount: d.amount,
+        date: d.lastPaymentDate || d.dueDate,
+        ref: d.invoiceRef || d.id,
+        status: 'Collected',
+      })),
+    ...creditors
+      .filter((c) => c.status === 'Paid' || c.utrNumber)
+      .map((c) => ({
+        id: `act-crd-${c.id}`,
+        type: 'payout' as const,
+        title: c.vendorEntity,
+        subtitle: c.utrNumber ? `UTR: ${c.utrNumber}` : 'Vendor bill cleared via RTGS/NEFT',
+        amount: c.amount,
+        date: c.paidDate || c.dueDate,
+        ref: c.utrNumber || c.id,
+        status: 'Disbursed',
+      })),
+    ...emis
+      .filter((e) => e.lastPaymentDate || e.lastPaymentRef)
+      .map((e) => ({
+        id: `act-emi-${e.id}`,
+        type: 'emi' as const,
+        title: e.loanName,
+        subtitle: `Bank ACH installment debited (${e.accountNo})`,
+        amount: e.monthlyEmi,
+        date: e.lastPaymentDate || e.nextDueDate,
+        ref: e.lastPaymentRef || e.accountNo,
+        status: 'Debited',
+      })),
+    ...compliance
+      .filter((comp) => comp.status === 'Filed' || comp.arnNumber)
+      .map((comp) => ({
+        id: `act-cmp-${comp.id}`,
+        type: 'compliance' as const,
+        title: comp.title,
+        subtitle: comp.arnNumber ? `ARN: ${comp.arnNumber}` : 'Portal statutory return submitted',
+        amount: comp.estimatedAmount || 0,
+        date: comp.filedDate || comp.dueDate,
+        ref: comp.arnNumber || comp.id,
+        status: 'Filed',
+      })),
+  ].sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 7);
+
   return (
     <div className="space-y-6">
+      {/* Overview Page Title Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#161A2F] tracking-tight">
+            Overview
+          </h1>
+          <p className="text-xs sm:text-sm text-[#7C8499] mt-0.5 font-medium">
+            Monitor your operations, financial activity and pending actions.
+          </p>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() =>
+              openAiChatWithPrompt(
+                'Generate an executive operations brief of Llabdhi Manufacturing LLP highlighting upcoming receivables, vendor commitments, and tax obligations.'
+              )
+            }
+            className="px-3.5 py-2 rounded-xl bg-white border border-[#E6E9F0] text-[#161A2F] hover:border-[#3045F5]/30 text-xs font-bold inline-flex items-center space-x-1.5 shadow-2xs transition cursor-pointer"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#3045F5]" />
+            <span>AI Executive Brief</span>
+          </button>
+        </div>
+      </div>
+
       {/* 1. HORIZON SELECTOR & CONTROL BAR */}
-      <div className="bg-white rounded-2xl border border-[#E8EBF2] p-4 sm:p-5 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="bg-white rounded-2xl border border-[#E6E9F0] p-4 sm:p-5 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         {/* Date Filter Badges */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center space-x-2">
@@ -205,43 +302,43 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
               <Layers className="w-4 h-4" />
             </div>
             <div>
-              <span className="text-xs font-bold text-[#171B3A] block">
+              <span className="text-xs font-bold text-[#161A2F] block">
                 Cash Flow Horizon
               </span>
-              <span className="text-[10px] text-[#7D8499]">
+              <span className="text-[10px] text-[#7C8499]">
                 Active Window: {activeDetails.dateRangeText}
               </span>
             </div>
           </div>
 
-          <div className="h-6 w-px bg-[#E8EBF2] hidden sm:block" />
+          <div className="h-6 w-px bg-[#E6E9F0] hidden sm:block" />
 
           {/* Date Pickers */}
-          <div className="flex items-center space-x-2 bg-[#F7F9FC] border border-[#E8EBF2] px-3 py-1.5 rounded-xl">
+          <div className="flex items-center space-x-2 bg-[#F6F8FC] border border-[#E6E9F0] px-3 py-1.5 rounded-xl">
             <Calendar className="w-3.5 h-3.5 text-[#3045F5]" />
-            <span className="text-[11px] font-semibold text-[#7D8499]">Start:</span>
+            <span className="text-[11px] font-semibold text-[#7C8499]">Start:</span>
             <input
               type="date"
               value={startDateStr}
               onChange={(e) => setStartDateStr(e.target.value)}
-              className="bg-transparent border-none text-[11px] font-bold text-[#171B3A] focus:outline-none cursor-pointer"
+              className="bg-transparent border-none text-[11px] font-bold text-[#161A2F] focus:outline-none cursor-pointer"
             />
           </div>
 
-          <div className="flex items-center space-x-2 bg-[#F7F9FC] border border-[#E8EBF2] px-3 py-1.5 rounded-xl">
+          <div className="flex items-center space-x-2 bg-[#F6F8FC] border border-[#E6E9F0] px-3 py-1.5 rounded-xl">
             <Clock className="w-3.5 h-3.5 text-[#3045F5]" />
-            <span className="text-[11px] font-semibold text-[#7D8499]">Today:</span>
+            <span className="text-[11px] font-semibold text-[#7C8499]">Today:</span>
             <input
               type="date"
               value={todayDateStr}
               onChange={(e) => setTodayDateStr(e.target.value)}
-              className="bg-transparent border-none text-[11px] font-bold text-[#171B3A] focus:outline-none cursor-pointer"
+              className="bg-transparent border-none text-[11px] font-bold text-[#161A2F] focus:outline-none cursor-pointer"
             />
           </div>
         </div>
 
         {/* Horizon Segmented Control Buttons */}
-        <div className="inline-flex p-1 bg-[#F7F9FC] rounded-xl border border-[#E8EBF2] self-start lg:self-auto">
+        <div className="inline-flex p-1 bg-[#F6F8FC] rounded-xl border border-[#E6E9F0] self-start lg:self-auto">
           {(['5-Day', '10-Day', '15-Day', 'Monthly'] as CashFlowHorizon[]).map((hz) => {
             const isSelected = selectedHorizon === hz;
             return (
@@ -251,7 +348,7 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
                 className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                   isSelected
                     ? 'bg-white text-[#3045F5] shadow-xs'
-                    : 'text-[#7D8499] hover:text-[#171B3A]'
+                    : 'text-[#7C8499] hover:text-[#161A2F]'
                 }`}
               >
                 {hz === '5-Day' && '⚡ 5-Day'}
@@ -264,31 +361,31 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
         </div>
       </div>
 
-      {/* 2. TOP 4 MAIN KPI STAT CARDS (Benchmark Style) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
+      {/* 2. DYNAMIC 6 KPI STAT CARDS (Strictly calculated from real existing data) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {/* Card 1: Net Cash Position */}
-        <div className="bg-white rounded-2xl p-5 border border-[#E8EBF2] shadow-xs hover:border-[#3045F5]/30 transition-all group">
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-[#E6E9F0] shadow-xs hover:border-[#3045F5]/30 transition-all flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#7D8499]">
-              Net {activeDetails.horizonLabel} Liquidity
+            <span className="text-[11px] font-bold text-[#7C8499] uppercase tracking-wider">
+              {activeDetails.horizonLabel} Net
             </span>
             <div
-              className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+              className={`w-8 h-8 rounded-xl flex items-center justify-center ${
                 isPositiveNet ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
               }`}
             >
               {isPositiveNet ? (
-                <TrendingUp className="w-5 h-5" />
+                <TrendingUp className="w-4 h-4" />
               ) : (
-                <TrendingDown className="w-5 h-5" />
+                <TrendingDown className="w-4 h-4" />
               )}
             </div>
           </div>
 
-          <div className="mt-4">
+          <div className="mt-3">
             <h3
-              className={`text-2xl lg:text-3xl font-extrabold tracking-tight tabular-nums ${
-                isPositiveNet ? 'text-[#171B3A]' : 'text-rose-600'
+              className={`text-xl lg:text-2xl font-extrabold tracking-tight tabular-nums ${
+                isPositiveNet ? 'text-[#161A2F]' : 'text-rose-600'
               }`}
             >
               {formatINR(activeDetails.netCashPosition)}
@@ -296,97 +393,158 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
 
             <div className="mt-2 flex items-center space-x-1.5">
               <span
-                className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                   isPositiveNet
                     ? 'bg-emerald-50 text-emerald-700'
                     : 'bg-rose-50 text-rose-700'
                 }`}
               >
-                {isPositiveNet ? 'Surplus Reserve' : 'Deficit / Attention'}
+                {isPositiveNet ? 'Surplus' : 'Deficit'}
               </span>
-              <span className="text-[11px] text-[#7D8499]">
-                over {activeDetails.daysWindow} days
+              <span className="text-[10px] text-[#7C8499]">
+                in {activeDetails.daysWindow} days
               </span>
             </div>
           </div>
         </div>
 
-        {/* Card 2: Expected Receivables (Inflows) */}
-        <div className="bg-white rounded-2xl p-5 border border-[#E8EBF2] shadow-xs hover:border-[#3045F5]/30 transition-all group">
+        {/* Card 2: Outstanding Receivables (AR) */}
+        <div
+          onClick={() => onNavigateTab('debtors')}
+          className="bg-white rounded-2xl p-4 sm:p-5 border border-[#E6E9F0] shadow-xs hover:border-[#3045F5]/30 transition-all cursor-pointer flex flex-col justify-between group"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#7D8499]">
-              Expected Inflows (AR)
+            <span className="text-[11px] font-bold text-[#7C8499] uppercase tracking-wider">
+              Receivables (AR)
             </span>
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <ArrowDownRight className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-105 transition">
+              <ArrowDownRight className="w-4 h-4" />
             </div>
           </div>
 
-          <div className="mt-4">
-            <h3 className="text-2xl lg:text-3xl font-extrabold text-[#171B3A] tracking-tight tabular-nums">
-              {formatINR(activeDetails.totalInflow)}
+          <div className="mt-3">
+            <h3 className="text-xl lg:text-2xl font-extrabold text-[#161A2F] tracking-tight tabular-nums">
+              {formatINR(totalReceivables)}
             </h3>
 
             <div className="mt-2 flex items-center space-x-1.5">
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700">
-                {activeDetails.inflows.length} invoice(s)
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
+                {debtors.filter((d) => d.status !== 'Paid').length} invoices
               </span>
-              <span className="text-[11px] text-[#7D8499]">
-                scheduled for collection
-              </span>
+              {overdueDebtorsCount > 0 && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-700">
+                  {overdueDebtorsCount} overdue
+                </span>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Card 3: Required Outflows (Payables + EMIs + Compliance) */}
-        <div className="bg-white rounded-2xl p-5 border border-[#E8EBF2] shadow-xs hover:border-[#3045F5]/30 transition-all group">
+        {/* Card 3: Pending Vendor Payables (AP) */}
+        <div
+          onClick={() => onNavigateTab('creditors')}
+          className="bg-white rounded-2xl p-4 sm:p-5 border border-[#E6E9F0] shadow-xs hover:border-[#3045F5]/30 transition-all cursor-pointer flex flex-col justify-between group"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#7D8499]">
-              Required Outflows (AP)
+            <span className="text-[11px] font-bold text-[#7C8499] uppercase tracking-wider">
+              Payables (AP)
             </span>
-            <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
-              <ArrowUpRight className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center group-hover:scale-105 transition">
+              <ArrowUpRight className="w-4 h-4" />
             </div>
           </div>
 
-          <div className="mt-4">
-            <h3 className="text-2xl lg:text-3xl font-extrabold text-[#171B3A] tracking-tight tabular-nums">
-              {formatINR(activeDetails.totalOutflow)}
+          <div className="mt-3">
+            <h3 className="text-xl lg:text-2xl font-extrabold text-[#161A2F] tracking-tight tabular-nums">
+              {formatINR(totalCreditorsUnpaid)}
             </h3>
 
             <div className="mt-2 flex items-center space-x-1.5">
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-rose-50 text-rose-700">
-                Creditors + EMIs + Tax
-              </span>
-              <span className="text-[11px] text-[#7D8499]">
-                committed payouts
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700">
+                {pendingCreditorsCount} pending bills
               </span>
             </div>
           </div>
         </div>
 
-        {/* Card 4: Statutory GST & Compliance Dues */}
-        <div className="bg-white rounded-2xl p-5 border border-[#E8EBF2] shadow-xs hover:border-[#3045F5]/30 transition-all group">
+        {/* Card 4: Monthly Recurring Debt (EMIs) */}
+        <div
+          onClick={() => onNavigateTab('emis')}
+          className="bg-white rounded-2xl p-4 sm:p-5 border border-[#E6E9F0] shadow-xs hover:border-[#3045F5]/30 transition-all cursor-pointer flex flex-col justify-between group"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#7D8499]">
-              Daily GST Payable
+            <span className="text-[11px] font-bold text-[#7C8499] uppercase tracking-wider">
+              Monthly Debt (EMI)
             </span>
-            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-              <Coins className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-xl bg-[#EFF2FE] text-[#3045F5] flex items-center justify-center group-hover:scale-105 transition">
+              <Car className="w-4 h-4" />
             </div>
           </div>
 
-          <div className="mt-4">
-            <h3 className="text-2xl lg:text-3xl font-extrabold text-[#171B3A] tracking-tight tabular-nums">
+          <div className="mt-3">
+            <h3 className="text-xl lg:text-2xl font-extrabold text-[#161A2F] tracking-tight tabular-nums">
+              {formatINR(totalMonthlyEmi)}
+            </h3>
+
+            <div className="mt-2 flex items-center space-x-1.5">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#EFF2FE] text-[#3045F5]">
+                {activeEmisCount} active loans
+              </span>
+              <span className="text-[10px] text-[#7C8499]">ACH debits</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 5: Statutory Filings & GST */}
+        <div
+          onClick={() => onNavigateTab('compliance')}
+          className="bg-white rounded-2xl p-4 sm:p-5 border border-[#E6E9F0] shadow-xs hover:border-[#3045F5]/30 transition-all cursor-pointer flex flex-col justify-between group"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-[#7C8499] uppercase tracking-wider">
+              Statutory Dues
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-105 transition">
+              <FileCheck2 className="w-4 h-4" />
+            </div>
+          </div>
+
+          <div className="mt-3">
+            <h3 className="text-xl lg:text-2xl font-extrabold text-[#161A2F] tracking-tight tabular-nums">
               {formatINR(totalGstPayable)}
             </h3>
 
             <div className="mt-2 flex items-center space-x-1.5">
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700">
-                3 Manufacturing Units
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
+                {pendingComplianceCount} filings pending
               </span>
-              <span className="text-[11px] text-[#7D8499]">
-                MH, TN & Goa
+              <span className="text-[10px] text-[#7C8499]">3 Units</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 6: Enterprise Counterparties */}
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-[#E6E9F0] shadow-xs hover:border-[#3045F5]/30 transition-all flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-[#7C8499] uppercase tracking-wider">
+              Partners
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
+              <Building2 className="w-4 h-4" />
+            </div>
+          </div>
+
+          <div className="mt-3">
+            <h3 className="text-xl lg:text-2xl font-extrabold text-[#161A2F] tracking-tight tabular-nums">
+              {uniqueClientsCount + uniqueVendorsCount}
+            </h3>
+
+            <div className="mt-2 flex items-center space-x-1.5">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-800">
+                {uniqueClientsCount} Clients
+              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-800">
+                {uniqueVendorsCount} Vendors
               </span>
             </div>
           </div>
@@ -989,7 +1147,7 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
             </div>
           </div>
 
-          <div className="px-5 py-3 border-t border-[#E8EBF2] bg-[#F7F9FC]/60 text-right">
+          <div className="px-5 py-3 border-t border-[#E6E9F0] bg-[#F6F8FC]/60 text-right">
             <button
               onClick={() => onNavigateTab('creditors')}
               className="text-xs font-semibold text-[#3045F5] hover:underline inline-flex items-center space-x-1 cursor-pointer"
@@ -1001,7 +1159,138 @@ export const CashFlowCommandCenter: React.FC<CashFlowCommandCenterProps> = ({
         </div>
       </div>
 
-      {/* 7. UPDATE TODAY'S GST PAYABLE & AVAILABLE MODAL */}
+      {/* 7. RECENT OPERATIONAL ACTIVITY (Populated strictly with real data) */}
+      <div className="bg-white rounded-2xl border border-[#E6E9F0] shadow-xs overflow-hidden">
+        <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-[#E6E9F0] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center space-x-2">
+              <Clock className="w-4 h-4 text-[#3045F5]" />
+              <h3 className="font-extrabold text-sm sm:text-base text-[#161A2F]">
+                Recent Activity & Operations Ledger
+              </h3>
+            </div>
+            <p className="text-xs text-[#7C8499] mt-0.5">
+              Live audit trail of cleared payments, vendor disbursements, EMI debits, and statutory filings
+            </p>
+          </div>
+
+          <div className="flex items-center space-x-2 text-xs">
+            <span className="px-2.5 py-1 rounded-full bg-[#F6F8FC] border border-[#E6E9F0] text-[#161A2F] font-semibold text-[11px]">
+              {recentActivities.length} recent operations
+            </span>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          {recentActivities.length === 0 ? (
+            <div className="py-12 text-center text-xs text-[#7C8499]">
+              No recorded recent activity.
+            </div>
+          ) : (
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[#F6F8FC] text-[#7C8499] border-b border-[#E6E9F0] text-[10px] uppercase font-bold tracking-wider">
+                <tr>
+                  <th className="p-3.5 sm:px-6">Transaction / Party</th>
+                  <th className="p-3.5">Category</th>
+                  <th className="p-3.5">Reference / Audit Note</th>
+                  <th className="p-3.5">Date</th>
+                  <th className="p-3.5">Status</th>
+                  <th className="p-3.5 sm:px-6 text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#E6E9F0]">
+                {recentActivities.map((act) => {
+                  const isPositive = act.type === 'receipt';
+                  return (
+                    <tr key={act.id} className="hover:bg-[#F6F8FC] transition group">
+                      <td className="p-3.5 sm:px-6">
+                        <div className="flex items-center space-x-3">
+                          <div
+                            className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                              act.type === 'receipt'
+                                ? 'bg-emerald-50 text-emerald-600'
+                                : act.type === 'payout'
+                                ? 'bg-rose-50 text-rose-600'
+                                : act.type === 'emi'
+                                ? 'bg-[#EFF2FE] text-[#3045F5]'
+                                : 'bg-amber-50 text-amber-600'
+                            }`}
+                          >
+                            {act.type === 'receipt' && <ArrowDownRight className="w-4 h-4" />}
+                            {act.type === 'payout' && <ArrowUpRight className="w-4 h-4" />}
+                            {act.type === 'emi' && <Car className="w-4 h-4" />}
+                            {act.type === 'compliance' && <FileCheck2 className="w-4 h-4" />}
+                          </div>
+                          <div>
+                            <span className="font-bold text-[#161A2F] block">
+                              {act.title}
+                            </span>
+                            <span className="text-[11px] text-[#7C8499]">
+                              {act.subtitle}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="p-3.5">
+                        <span className="text-xs font-semibold text-[#161A2F] capitalize">
+                          {act.type === 'receipt'
+                            ? 'Client Receivable'
+                            : act.type === 'payout'
+                            ? 'Vendor Payable'
+                            : act.type === 'emi'
+                            ? 'Bank Installment'
+                            : 'Statutory Filing'}
+                        </span>
+                      </td>
+
+                      <td className="p-3.5 font-mono text-[11px] text-[#7C8499]">
+                        {act.ref}
+                      </td>
+
+                      <td className="p-3.5 text-[#7C8499] whitespace-nowrap">
+                        {act.date}
+                      </td>
+
+                      <td className="p-3.5">
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            act.type === 'receipt'
+                              ? 'bg-emerald-50 text-emerald-700'
+                              : act.type === 'payout'
+                              ? 'bg-rose-50 text-rose-700'
+                              : act.type === 'emi'
+                              ? 'bg-[#EFF2FE] text-[#3045F5]'
+                              : 'bg-amber-50 text-amber-700'
+                          }`}
+                        >
+                          {act.status}
+                        </span>
+                      </td>
+
+                      <td className="p-3.5 sm:px-6 text-right font-extrabold tabular-nums whitespace-nowrap">
+                        <span
+                          className={
+                            isPositive
+                              ? 'text-[#10B981]'
+                              : act.type === 'payout'
+                              ? 'text-rose-600'
+                              : 'text-[#161A2F]'
+                          }
+                        >
+                          {isPositive ? '+' : '-'} {formatINR(act.amount)}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      {/* 8. UPDATE TODAY'S GST PAYABLE & AVAILABLE MODAL */}
       {isEditingGst && (
         <div className="fixed inset-0 bg-[#171B3A]/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl border border-[#E8EBF2] shadow-2xl max-w-lg w-full p-6 space-y-4 my-8">

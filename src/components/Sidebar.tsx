@@ -41,8 +41,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const navItems = [
     {
       id: 'dashboard',
-      label: 'Command Center',
-      sublabel: '5, 10, 15 & 30-Day Liquidity',
+      label: 'Overview',
+      sublabel: 'Operations & Cash Flow',
       icon: LayoutDashboard,
     },
     {

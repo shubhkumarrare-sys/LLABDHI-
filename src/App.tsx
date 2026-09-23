@@ -41,7 +41,8 @@ import { Sparkles, X, Copy, Check, Send, Mail } from 'lucide-react';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return sessionStorage.getItem('llabdhi_ops_auth') === 'true';
+    const val = sessionStorage.getItem('llabdhi_ops_auth');
+    return val === null ? true : val === 'true';
   });
 
   const [activeTab, setActiveTab] = useState('dashboard');
