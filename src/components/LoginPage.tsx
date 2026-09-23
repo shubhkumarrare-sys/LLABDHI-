@@ -18,8 +18,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setIsLoading(true);
 
     setTimeout(() => {
-      // Validate requested credentials: Username = DD@2026, Password = DDVISION
-      if (username.trim() === 'DD@2026' && password === 'DDVISION') {
+      // Validate requested credentials: Username = DD@2026, Password = 2026
+      if (username.trim() === 'DD@2026' && password === '2026') {
         sessionStorage.setItem('llabdhi_ops_auth', 'true');
         onLoginSuccess();
       } else {

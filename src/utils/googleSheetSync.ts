@@ -514,8 +514,6 @@ export const fetchLiveSheetData = async (url?: string) => {
     })
     .filter(
       (c: CreditorItem) =>
-        c.id !== 'CRE-301' &&
-        c.id !== 'CRE-302' &&
         Boolean(c.vendorEntity && c.vendorEntity.trim() !== '')
     );
 

@@ -349,8 +349,6 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
             })
             .filter(
               (c: CreditorItem) =>
-                c.id !== 'CRE-301' &&
-                c.id !== 'CRE-302' &&
                 Boolean(c.vendorEntity && c.vendorEntity.trim() !== '')
             );
 
@@ -638,8 +636,6 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
             })
             .filter(
               (c: CreditorItem) =>
-                c.id !== 'CRE-301' &&
-                c.id !== 'CRE-302' &&
                 Boolean(c.vendorEntity && c.vendorEntity.trim() !== '')
             );
 

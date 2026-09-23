@@ -111,7 +111,7 @@ Include:
 
   // 4. Calendar Sync Simulation Endpoint
   app.post('/api/sync-calendar', (req, res) => {
-    const { emis, compliance } = req.body;
+    const { emis, compliance, creditors, debtors } = req.body;
     const now = new Date();
     const syncId = `SYNC-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${Math.floor(100 + Math.random() * 900)}`;
 
@@ -141,7 +141,7 @@ Include:
       });
     }
 
-    // Process Compliance items due within 7 days
+    // Process Compliance items
     if (Array.isArray(compliance)) {
       compliance.forEach((comp: any) => {
         if (comp.status !== 'Filed' && comp.status !== 'Paid') {
@@ -163,11 +163,53 @@ Include:
       });
     }
 
+    // Process Creditors (Payables)
+    if (Array.isArray(creditors)) {
+      creditors.forEach((cred: any) => {
+        if (cred.status !== 'Paid') {
+          const logId = `CAL-${Math.floor(1000 + Math.random() * 9000)}`;
+          const gEvtId = `evt_gcal_${cred.id.toLowerCase()}_${Date.now().toString(36)}`;
+          newLogs.push({
+            id: logId,
+            timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+            eventTitle: `[LLABDHI CREDITOR] ${cred.vendorEntity} (₹${Number(cred.amount).toLocaleString('en-IN')})`,
+            eventDate: cred.dueDate,
+            targetTab: 'Creditors',
+            itemRefId: cred.id,
+            googleEventId: gEvtId,
+            syncStatus: 'Synced',
+            syncId,
+          });
+        }
+      });
+    }
+
+    // Process Debtors (Inflows expected)
+    if (Array.isArray(debtors)) {
+      debtors.forEach((deb: any) => {
+        if (deb.status !== 'Paid') {
+          const logId = `CAL-${Math.floor(1000 + Math.random() * 9000)}`;
+          const gEvtId = `evt_gcal_${deb.id.toLowerCase()}_${Date.now().toString(36)}`;
+          newLogs.push({
+            id: logId,
+            timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+            eventTitle: `[LLABDHI DEBTOR] ${deb.clientEntity} (₹${Number(deb.amount).toLocaleString('en-IN')})`,
+            eventDate: deb.dueDate,
+            targetTab: 'Debtors',
+            itemRefId: deb.id,
+            googleEventId: gEvtId,
+            syncStatus: 'Synced',
+            syncId,
+          });
+        }
+      });
+    }
+
     res.json({
       success: true,
       syncId,
       createdLogs: newLogs,
-      message: `Successfully synced ${newLogs.length} events to Google Calendar.`,
+      message: `Successfully synced ${newLogs.length} events to Google Calendar with RSVP Accept links & calendar invitations dispatched to: narendrabothra@llabdhigroup.in, ea@llabdhigroup.in.`,
     });
   });
 
@@ -179,12 +221,14 @@ Include:
     const logId = `EML-${Math.floor(1000 + Math.random() * 9000)}`;
     const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
+    const targetEmail = recipientEmail || 'narendrabothra@llabdhigroup.in, ea@llabdhigroup.in';
+
     const logEntry = {
       id: logId,
       timestamp,
-      recipient: recipientEmail || 'shubhkumarrare@gmail.com',
-      subject: `[LLABDHI OPS NODE] Automated Financial & Compliance Alert (${timestamp.substring(0, 10)})`,
-      itemRef: summary || 'Automated Batch Email Trigger',
+      recipient: targetEmail,
+      subject: `[LLABDHI OPS NODE] Financial & Compliance Event Alert with Accept Links (${timestamp.substring(0, 10)})`,
+      itemRef: summary || 'EMIs, Compliance, Creditors & Debtors Audit with Direct Event Accept Links',
       triggerType: 'Interval Schedule',
       syncId,
       status: 'Sent',
@@ -193,7 +237,7 @@ Include:
     res.json({
       success: true,
       log: logEntry,
-      message: `Email alert successfully dispatched to ${logEntry.recipient}`,
+      message: `Email alert with direct Calendar Event Acceptance links successfully dispatched to ${logEntry.recipient}`,
     });
   });
 

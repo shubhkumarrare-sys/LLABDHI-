@@ -80,15 +80,13 @@ export default function App() {
     return INITIAL_DEBTORS.filter((d) => !isExcludedDebtor(d));
   });
   const [creditors, setCreditors] = useState<CreditorItem[]>(() => {
-    const saved = localStorage.getItem('llabdhi_creditors_v5');
+    const saved = localStorage.getItem('llabdhi_creditors_v6') || localStorage.getItem('llabdhi_creditors_v5');
     if (saved) {
       try {
         const parsed: CreditorItem[] = JSON.parse(saved);
         const filtered = parsed
           .filter(
             (c) =>
-              c.id !== 'CRE-301' &&
-              c.id !== 'CRE-302' &&
               c.vendorEntity &&
               c.vendorEntity.trim() !== '' &&
               c.vendorEntity.toLowerCase() !== 'creditor entity' &&
@@ -231,15 +229,13 @@ export default function App() {
       if (liveData.creditors && liveData.creditors.length > 0) {
         const filteredCreditors = liveData.creditors.filter(
           (c) =>
-            c.id !== 'CRE-301' &&
-            c.id !== 'CRE-302' &&
             c.vendorEntity &&
             c.vendorEntity.trim() !== '' &&
             c.vendorEntity.toLowerCase() !== 'creditor entity' &&
             c.vendorEntity.toLowerCase() !== 'vendor entity'
         );
         setCreditors(filteredCreditors);
-        localStorage.setItem('llabdhi_creditors_v5', JSON.stringify(filteredCreditors));
+        localStorage.setItem('llabdhi_creditors_v6', JSON.stringify(filteredCreditors));
         updatedCreditorsCount = filteredCreditors.length;
       }
 
@@ -304,15 +300,13 @@ export default function App() {
     if (newData.creditors) {
       const filteredCreditors = newData.creditors.filter(
         (c) =>
-          c.id !== 'CRE-301' &&
-          c.id !== 'CRE-302' &&
           c.vendorEntity &&
           c.vendorEntity.trim() !== '' &&
           c.vendorEntity.toLowerCase() !== 'creditor entity' &&
           c.vendorEntity.toLowerCase() !== 'vendor entity'
       );
       setCreditors(filteredCreditors);
-      localStorage.setItem('llabdhi_creditors_v5', JSON.stringify(filteredCreditors));
+      localStorage.setItem('llabdhi_creditors_v6', JSON.stringify(filteredCreditors));
     }
     if (newData.emis) {
       const ensuredEmis = newData.emis.map((item) => {
@@ -377,18 +371,16 @@ export default function App() {
   // Handlers for Creditors
   const handleUpdateCreditor = (updated: CreditorItem) => {
     setCreditors((prev) => {
-      const next = prev
-        .map((c) => (c.id === updated.id ? updated : c))
-        .filter((c) => c.id !== 'CRE-301' && c.id !== 'CRE-302');
-      localStorage.setItem('llabdhi_creditors_v5', JSON.stringify(next));
+      const next = prev.map((c) => (c.id === updated.id ? updated : c));
+      localStorage.setItem('llabdhi_creditors_v6', JSON.stringify(next));
       return next;
     });
   };
 
   const handleAddCreditor = (newItem: CreditorItem) => {
     setCreditors((prev) => {
-      const next = [newItem, ...prev].filter((c) => c.id !== 'CRE-301' && c.id !== 'CRE-302');
-      localStorage.setItem('llabdhi_creditors_v5', JSON.stringify(next));
+      const next = [newItem, ...prev];
+      localStorage.setItem('llabdhi_creditors_v6', JSON.stringify(next));
       return next;
     });
   };
@@ -490,6 +482,8 @@ export default function App() {
         body: JSON.stringify({
           emis,
           compliance,
+          creditors,
+          debtors,
         }),
       });
 
